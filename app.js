@@ -1,1048 +1,750 @@
 (() => {
   "use strict";
 
-  const DATA = window.ACADEMY;
-  const $ = (selector) => document.querySelector(selector);
+  const C = window.COURSE;
+  const P = window.Planner;
+  const TASKS = P.tasks(C.lessons);
+  const KEY = "launchpad-python-foundation-v1";
+  const $ = selector => document.querySelector(selector);
   const main = $("#main");
 
-  // Retains compatibility with progress saved by the earlier starter.
-  const STORAGE_KEY = "playwright-academy-v1";
-
-  const state = {
-    completed: [],
-    bookmarks: [],
-    notes: {},
-    drafts: {},
-    quizzes: {},
-    lastLesson: "basics",
-    theme: "light"
-  };
-
-  let storageFailed = false;
+  let state = P.empty();
+  let storageWarning = false;
   let noticeTimer;
+  let selectedWeek = P.monday(P.today());
 
-  function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, (character) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[character]));
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved) state = P.validateBackup(JSON.parse(saved), C.lessons);
+  } catch {
+    storageWarning = true;
   }
 
-  function notify(message) {
+  function notify(text) {
     clearTimeout(noticeTimer);
-    $("#notice").textContent = message;
-
-    noticeTimer = setTimeout(() => {
-      $("#notice").textContent = "";
-    }, 6000);
+    $("#notice").textContent = text;
+    noticeTimer = setTimeout(() => { $("#notice").textContent = ""; }, 6500);
   }
 
-  function loadState() {
+  function save() {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      if (!saved || typeof saved !== "object") return;
-
-      for (const key of ["completed", "bookmarks"]) {
-        if (Array.isArray(saved[key])) {
-          state[key] = DATA.lessons
-            .filter((lesson) => saved[key].includes(lesson.id))
-            .map((lesson) => lesson.id);
-        }
-      }
-
-      for (const lesson of DATA.lessons) {
-        for (const key of ["notes", "drafts"]) {
-          const value = saved[key]?.[lesson.id];
-          if (typeof value === "string") {
-            state[key][lesson.id] = value;
-          }
-        }
-
-        const answer = saved.quizzes?.[lesson.id];
-
-        if (
-          Number.isInteger(answer) &&
-          answer >= 0 &&
-          answer < lesson.quiz.choices.length
-        ) {
-          state.quizzes[lesson.id] = answer;
-        }
-      }
-
-      if (DATA.lessons.some((lesson) => lesson.id === saved.lastLesson)) {
-        state.lastLesson = saved.lastLesson;
-      }
-
-      if (saved.theme === "dark") state.theme = "dark";
+      localStorage.setItem(KEY, JSON.stringify(state));
     } catch {
-      storageFailed = true;
+      storageWarning = true;
+      notify("Browser storage is unavailable or full. Export a backup before leaving.");
     }
   }
 
-  function saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      if (!storageFailed) {
-        notify("Browser storage is unavailable or full. Changes remain in this session only.");
-      }
-      storageFailed = true;
-    }
+  function e(text) {
+    return String(text).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
   }
 
   const paths = {
-    dashboard:
-      '<rect x="3" y="3" width="7" height="7" rx="2"/>' +
-      '<rect x="14" y="3" width="7" height="7" rx="2"/>' +
-      '<rect x="3" y="14" width="7" height="7" rx="2"/>' +
-      '<rect x="14" y="14" width="7" height="7" rx="2"/>',
-
-    book:
-      '<path d="M4 3h12a3 3 0 0 1 3 3v15H7a3 3 0 0 1-3-3V3Z"/>' +
-      '<path d="M4 17h15M8 7h7M8 11h5"/>',
-
-    route:
-      '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="19" r="2"/>' +
-      '<path d="M8 5h7a4 4 0 0 1 0 8H9a3 3 0 0 0 0 6h7"/>',
-
-    code:
-      '<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>',
-
-    sparkles:
-      '<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/>',
-
-    terminal:
-      '<rect x="3" y="4" width="18" height="16" rx="3"/>' +
-      '<path d="m7 9 3 3-3 3m6 0h4"/>',
-
-    target:
-      '<circle cx="12" cy="12" r="9"/>' +
-      '<circle cx="12" cy="12" r="5"/>' +
-      '<circle cx="12" cy="12" r="1"/>',
-
-    shield:
-      '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/>' +
-      '<path d="m8 12 3 3 5-6"/>',
-
-    bug:
-      '<rect x="7" y="7" width="10" height="13" rx="5"/>' +
-      '<path d="m9 3 3 4 3-4M3 10h4m10 0h4M3 15h4m10 0h4M5 21l3-3m8 0 3 3M12 8v11"/>',
-
-    trophy:
-      '<path d="M8 3h8v6a4 4 0 0 1-8 0V3Zm0 2H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4M12 13v5m-4 3h8m-7-3h6v3H9z"/>',
-
-    arrow:
-      '<path d="M4 12h16m-6-6 6 6-6 6"/>',
-
-    check:
-      '<path d="m5 12 4 4L19 6"/>',
-
-    note:
-      '<path d="M5 3h14v14l-4 4H5V3Zm10 18v-4h4M8 7h8M8 11h8"/>'
+    home: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2"/>',
+    map: '<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16"/>',
+    folder: '<path d="M3 7V4h7l2 3h9v13H3V7Z"/>',
+    code: '<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>',
+    terminal: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3m6 0h4"/>',
+    tools: '<path d="m14 4 3 3 4-2a7 7 0 0 1-8 9l-7 7-3-3 7-7a7 7 0 0 1 4-7Z"/>',
+    shield: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    star: '<path d="m12 3 3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z"/>',
+    save: '<path d="M4 3h13l3 3v15H4V3Zm3 0v7h10V3M8 21v-7h8v7"/>'
   };
 
   function icon(name) {
-    return `<svg class="icon" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" stroke-width="1.8"
-      stroke-linecap="round" stroke-linejoin="round"
-      aria-hidden="true" focusable="false">
-      ${paths[name] || paths.book}
-    </svg>`;
+    return `<svg class="icon" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+      stroke-linejoin="round" aria-hidden="true" focusable="false">
+      ${paths[name] || paths.code}</svg>`;
   }
 
-  function heading(text, name = "book") {
-    return `<h2 class="section-heading">
-      <span class="section-icon">${icon(name)}</span>
-      ${escapeHTML(text)}
-    </h2>`;
+  function expand(text) {
+    const system = C.systems[state.profile?.os || "windows"];
+    return String(text).replace(/\{(BOOT|RUN|LIST|LOCATION)\}/g, (_, key) => ({
+      BOOT: system.boot, RUN: system.run, LIST: system.list, LOCATION: system.location
+    }[key]));
   }
 
   function list(items, ordered = false) {
     const tag = ordered ? "ol" : "ul";
-
-    return `<${tag}>${items.map((item) =>
-      `<li>${escapeHTML(item)}</li>`
-    ).join("")}</${tag}>`;
+    return `<${tag}>${items.map(item => `<li>${e(expand(item))}</li>`).join("")}</${tag}>`;
   }
 
-  // Lightweight highlighting for strings, comments, and common JS/TS keywords.
-  // This is display formatting, not parsing or validation.
-  function highlight(code) {
-    const pattern =
-      /\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b(?:import|from|const|let|async|await|return|if|else|export|function)\b/g;
-
-    let output = "";
-    let cursor = 0;
-
-    for (const match of code.matchAll(pattern)) {
-      output += escapeHTML(code.slice(cursor, match.index));
-
-      const token = match[0];
-      const type = token.startsWith("//")
-        ? "comment"
-        : /^["']/.test(token)
-          ? "string"
-          : "keyword";
-
-      output += `<span class="token-${type}">${escapeHTML(token)}</span>`;
-      cursor = match.index + token.length;
-    }
-
-    return output + escapeHTML(code.slice(cursor));
+  function code(text) {
+    return `<div class="codebox"><button type="button" data-copy>Copy text</button>
+      <pre><code>${e(expand(text))}</code></pre></div>`;
   }
 
-  function codeBox(text, language = "typescript") {
-    return `<div class="codebox">
-      <button type="button" data-copy>Copy</button>
-      <pre><code>${language === "typescript"
-        ? highlight(text)
-        : escapeHTML(text)}</code></pre>
-    </div>`;
-  }
-
-  async function copyText(text) {
+  async function copy(text) {
     try {
       await navigator.clipboard.writeText(text);
       notify("Copied.");
     } catch {
-      notify("Clipboard access is unavailable. Select the text and copy it manually.");
+      notify("Clipboard unavailable. Select the text and copy it manually.");
     }
   }
 
-  function downloadText(text, filename) {
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+  function download(text, filename, type = "text/plain") {
+    const url = URL.createObjectURL(new Blob([text], { type }));
     const link = document.createElement("a");
-
     link.href = url;
     link.download = filename;
     document.body.append(link);
     link.click();
     link.remove();
-
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", event => {
     const button = event.target.closest("[data-copy]");
-
-    if (button) {
-      const code = button.closest(".codebox").querySelector("code");
-      copyText(code.textContent);
-    }
+    if (button) copy(button.closest(".codebox").querySelector("code").textContent);
   });
 
-  const navigation = [
-    ["dashboard", "dashboard", "Dashboard"],
-    ["roadmap", "route", "Learning roadmap"],
-    ["practice", "code", "Practice application"],
-    ["projects", "trophy", "Project roadmap"],
-    ["glossary", "book", "Glossary"],
-    ["prompts", "sparkles", "AI prompt library"]
-  ];
+  function work(lesson) {
+    if (!state.work[lesson.id]) {
+      state.work[lesson.id] = {
+        notes: "", draft: expand(lesson.starter), evidence: "",
+        checks: lesson.checks.map(() => false), answer: null
+      };
+    }
+    return state.work[lesson.id];
+  }
 
-  function updateNavigation() {
-    $("#main-nav").innerHTML = navigation.map(([route, name, title]) =>
-      `<a href="#${route}">${icon(name)}<span>${title}</span></a>`
+  function completeLesson(id) {
+    return P.stages.every(stage => Boolean(state.done[`${id}:${stage.id}`]));
+  }
+
+  function nav() {
+    const links = [
+      ["dashboard", "home", "My dashboard"],
+      ["onboarding", "tools", "My learning profile"],
+      ["planner", "calendar", "Weekly planner"],
+      ["roadmap", "map", "Full learning roadmap"],
+      ["ai", "star", "AI Integration Academy"],
+      ["backup", "save", "Backup & restore"]
+    ];
+
+    $("#navigation").innerHTML = links.map(([route, symbol, title]) =>
+      `<a href="#${route}">${icon(symbol)}<span>${title}</span></a>`
     ).join("");
 
-    const query = $("#lesson-search").value.toLowerCase().trim();
-
-    const results = DATA.lessons.filter((lesson) =>
+    const query = $("#search").value.toLowerCase().trim();
+    const found = C.lessons.filter(lesson =>
       `${lesson.title} ${lesson.objective}`.toLowerCase().includes(query)
     );
 
-    $("#lesson-nav").innerHTML = results.length
-      ? results.map((lesson) => {
-        const number = DATA.lessons.indexOf(lesson) + 1;
-        const complete = state.completed.includes(lesson.id);
+    $("#lessons").innerHTML = found.length ? found.map(lesson =>
+      `<a href="#lesson/${lesson.id}">
+        <span class="number" aria-hidden="true">${completeLesson(lesson.id) ? "✓" : C.lessons.indexOf(lesson) + 1}</span>
+        <span>${e(lesson.title)}</span>
+      </a>`
+    ).join("") : '<p class="muted small">No matching lessons.</p>';
 
-        return `<a href="#lesson/${lesson.id}">
-          <span class="lesson-number" aria-hidden="true">
-            ${complete ? "✓" : String(number).padStart(2, "0")}
-          </span>
-          <span>${escapeHTML(lesson.title)}
-            ${complete ? '<span class="small"> — completed</span>' : ""}
-          </span>
-        </a>`;
-      }).join("")
-      : '<p class="muted small">No matching lessons.</p>';
-
-    const current = location.hash || "#dashboard";
-
-    document.querySelectorAll("nav a").forEach((link) => {
-      if (link.getAttribute("href") === current) {
+    document.querySelectorAll("nav a").forEach(link => {
+      if (link.getAttribute("href") === (location.hash || "#dashboard")) {
         link.setAttribute("aria-current", "page");
       }
     });
   }
 
-  function lessonCards(lessons) {
-    return `<div class="course-grid">
-      ${lessons.map((lesson) => {
-        const complete = state.completed.includes(lesson.id);
-
-        return `<a class="course-card" href="#lesson/${lesson.id}">
-          <div class="course-art">${icon(lesson.icon)}</div>
-          <span class="badge ${complete ? "complete" : ""}">
-            ${complete ? "Marked complete" : escapeHTML(lesson.level)}
-          </span>
-          <h3>${escapeHTML(lesson.title)}</h3>
-          <p>${escapeHTML(lesson.objective)}</p>
-          <span class="course-cta">
-            ${complete ? "Review lesson" : "Open lesson"}
-            ${icon("arrow")}
-          </span>
-        </a>`;
-      }).join("")}
-    </div>`;
+  function cards() {
+    return `<div class="lesson-grid">${C.lessons.map(lesson => `
+      <a class="lesson-card" href="#lesson/${lesson.id}">
+        <div class="lesson-art">${icon(lesson.icon)}</div>
+        <span class="badge ${completeLesson(lesson.id) ? "good" : ""}">
+          ${completeLesson(lesson.id) ? "Checkpoint complete" : "Beginner · about 60 minutes"}
+        </span>
+        <h3>${e(lesson.title)}</h3><p>${e(lesson.objective)}</p>
+        <strong>Open lesson →</strong>
+      </a>`).join("")}</div>`;
   }
 
-  const illustration = `
-    <svg class="hero-art" viewBox="0 0 360 290"
-      aria-hidden="true" focusable="false">
-      <defs>
-        <linearGradient id="browser-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#8564ef"/>
-          <stop offset="100%" stop-color="#5032ba"/>
-        </linearGradient>
-      </defs>
-
-      <circle cx="186" cy="142" r="122" fill="#b9a5ff" opacity=".15"/>
-      <circle cx="280" cy="46" r="16" fill="#ffc66d"/>
-      <circle cx="54" cy="230" r="10" fill="#5cceb5"/>
-
-      <rect x="42" y="59" width="273" height="186" rx="20"
-        fill="#392773" opacity=".1"/>
-      <rect x="34" y="47" width="273" height="186" rx="20"
-        fill="url(#browser-gradient)"/>
-
-      <path d="M34 88h273" stroke="#cbbdff" opacity=".35"/>
-      <circle cx="55" cy="68" r="4" fill="#ffbfce"/>
-      <circle cx="70" cy="68" r="4" fill="#ffe198"/>
-      <circle cx="85" cy="68" r="4" fill="#a5efda"/>
-
-      <rect x="111" y="61" width="133" height="14" rx="7"
-        fill="#ffffff" opacity=".15"/>
-
-      <path d="m95 124-23 22 23 22m142-44 23 22-23 22m-60-57-20 75"
-        fill="none" stroke="#ffffff" stroke-width="8"
-        stroke-linecap="round" stroke-linejoin="round"/>
-
-      <rect x="109" y="199" width="122" height="7" rx="3.5"
-        fill="#d7caff" opacity=".55"/>
-
-      <rect x="239" y="168" width="80" height="80" rx="22" fill="#c8f4e8"/>
-      <circle cx="279" cy="208" r="23" fill="#2a947b"/>
-      <path d="m268 208 8 8 15-17" fill="none"
-        stroke="#ffffff" stroke-width="5"
-        stroke-linecap="round" stroke-linejoin="round"/>
-
-      <rect x="11" y="111" width="48" height="48" rx="15" fill="#ffe8bb"/>
-      <path d="m36 120-10 15h8l-3 13 13-17h-9l1-11Z" fill="#a2620c"/>
-
-      <path d="M319 103v16m-8-8h16M111 21v12m-6-6h12"
-        stroke="#9a80ef" stroke-width="3" stroke-linecap="round"/>
+  const art = `
+    <svg class="hero-art" viewBox="0 0 340 270" aria-hidden="true">
+      <circle cx="170" cy="135" r="118" fill="#a996ff" opacity=".17"/>
+      <rect x="27" y="47" width="271" height="175" rx="22" fill="#6546d9"/>
+      <path d="M27 84h271" stroke="#bca9ff"/>
+      <circle cx="49" cy="65" r="4" fill="#ffc2cf"/>
+      <circle cx="64" cy="65" r="4" fill="#ffe099"/>
+      <circle cx="79" cy="65" r="4" fill="#93e5ce"/>
+      <path d="m94 112-23 25 23 25m119-50 23 25-23 25m-49-65-20 80"
+        stroke="white" fill="none" stroke-width="8" stroke-linecap="round"/>
+      <rect x="234" y="177" width="75" height="68" rx="20" fill="#bcebd9"/>
+      <path d="m252 211 12 12 23-27" fill="none" stroke="#217458" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="291" cy="28" r="12" fill="#ffcf7b"/>
+      <circle cx="25" cy="224" r="9" fill="#64cbb1"/>
     </svg>`;
 
   function dashboard() {
-    const completed = state.completed.length;
-    const total = DATA.lessons.length;
-
-    const resume = DATA.lessons.find((lesson) =>
-      lesson.id === state.lastLesson
-    ) || DATA.lessons[0];
-
-    const next = DATA.lessons.find((lesson) =>
-      !state.completed.includes(lesson.id)
-    );
-
-    const bookmarks = DATA.lessons.filter((lesson) =>
-      state.bookmarks.includes(lesson.id)
-    );
-
-    main.innerHTML = `
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">YOUR NEXT SKILL STARTS HERE</p>
-          <h1>Small steps.<br><em>Big testing energy.</em></h1>
-          <p>Go from “Where do I start?” to writing your first browser test.
-          Learn one idea, try it out, and build confidence as you go.</p>
-
-          <div class="actions">
-            <a class="button primary" href="#lesson/${resume.id}">
-              Resume learning ${icon("arrow")}
-            </a>
-            <a class="button" href="#practice">Open practice app</a>
-          </div>
-
-          <div class="hero-pills">
-            <span>${icon("book")} Beginner friendly</span>
-            <span>${icon("code")} Hands-on practice</span>
-            <span>${icon("shield")} Learn at your pace</span>
-          </div>
-        </div>
-
-        ${illustration}
-      </section>
-
-      <section class="metrics" aria-label="Learning overview">
-        <div class="metric">
-          <span class="metric-icon">${icon("book")}</span>
-          <div><strong>${total}</strong><small>Available lessons</small></div>
-        </div>
-        <div class="metric">
-          <span class="metric-icon">${icon("check")}</span>
-          <div><strong>${completed} / ${total}</strong><small>Marked complete</small></div>
-        </div>
-        <div class="metric">
-          <span class="metric-icon">${icon("route")}</span>
-          <div><strong>${DATA.modules.length}</strong><small>Planned course levels</small></div>
-        </div>
-      </section>
-
-      <div class="grid">
-        <section class="card">
-          ${heading("Your progress", "trophy")}
-          <progress value="${completed}" max="${total}"
-            aria-label="Available lesson completion"></progress>
-          <p>${completed} of ${total} available lessons marked complete.</p>
-          <p class="small muted">
-            This is self-reported learning progress, not verified test execution
-            or completion of the full planned course.
-          </p>
-          ${completed === total
-            ? '<p class="success">Starter track completion badge earned!</p>'
-            : ""}
-        </section>
-
-        <section class="card">
-          ${heading("Your next small step", "route")}
-          ${next ? `
-            <p>${escapeHTML(next.objective)}</p>
-            <a class="button" href="#lesson/${next.id}">
-              ${escapeHTML(next.title)} ${icon("arrow")}
-            </a>` : `
-            <p>Revisit a challenge and execute your tests locally.</p>
-            <a class="button" href="#lesson/debugging">Review the debugging challenge</a>`}
-        </section>
-      </div>
-
-      <section class="card">
-        <p class="eyebrow">YOUR STARTER TRACK</p>
-        ${heading("What will you learn today?", "sparkles")}
-        <p class="muted">Follow these lessons in order, or revisit an exercise.</p>
-        ${lessonCards(DATA.lessons)}
-      </section>
-
-      <section class="card">
-        ${heading("Saved for later", "note")}
-        ${bookmarks.length
-          ? lessonCards(bookmarks)
-          : '<p class="muted">Bookmark a lesson to find it here.</p>'}
-      </section>
-
-      <section class="card">
-        ${heading("Real features. Honest boundaries.", "shield")}
-        <p>Lessons, quizzes, drafts, notes, and practice interactions work in this site.
-        There are no user accounts or cross-device synchronization.</p>
-        <p>The tutor gives predefined demo hints. The practice login is fictional.
-        This website never executes your submitted code or claims your tests passed.</p>
-      </section>`;
-  }
-
-  function renderLesson(id) {
-    const lesson = DATA.lessons.find((item) => item.id === id);
-
-    if (!lesson) {
-      notFound();
+    if (!state.profile) {
+      main.innerHTML = `
+        <section class="hero"><div>
+          <p class="eyebrow">NO TECH BACKGROUND? START HERE.</p>
+          <h1>Your first step.<br><em>Not your last limit.</em></h1>
+          <p>Learn the tools before the tests. Build a schedule that fits your real life.</p>
+          <a class="button primary" href="#onboarding">Create my learning plan →</a>
+        </div>${art}</section>
+        <section class="card"><h2>What is included?</h2>
+          <p>Nine complete lessons, practical checkpoints, a weekly planner, and browser-local progress.</p>
+          <p>The later Python, Playwright, AI, and capstone tracks are shown as planned—not completed course material.</p>
+        </section>${cards()}`;
       return;
     }
 
-    state.lastLesson = id;
-    saveState();
-
-    const index = DATA.lessons.indexOf(lesson);
-    const previous = DATA.lessons[index - 1];
-    const next = DATA.lessons[index + 1];
+    const doneCount = TASKS.filter(task => state.done[task.id]).length;
+    const next = TASKS.find(task => !state.done[task.id]);
+    const overdue = TASKS.filter(task => !state.done[task.id] && state.plan[task.id] < P.today());
+    const goalText = {
+      personal: "Build personal confidence",
+      team: "Automate team workflows",
+      portfolio: "Build a portfolio"
+    }[state.profile.goal];
 
     main.innerHTML = `
-      <p class="breadcrumb">
-        <a href="#dashboard">Academy</a> / Lessons / ${escapeHTML(lesson.title)}
-      </p>
-
-      <span class="badge">${escapeHTML(lesson.level)}</span>
-      <h1>${escapeHTML(lesson.title)}</h1>
-
-      <section class="card">
-        ${heading("What you will be able to do", "target")}
-        <p>${escapeHTML(lesson.objective)}</p>
-        <p><strong>Prerequisites:</strong> ${escapeHTML(lesson.prerequisites)}</p>
-
+      <section class="hero"><div>
+        <p class="eyebrow">YOUR PYTHON JOURNEY</p>
+        <h1>Small steps.<br><em>Real capabilities.</em></h1>
+        <p>${e(goalText)} · ${state.profile.minutes}-minute sessions · ${state.profile.days.length} study days per week.</p>
         <div class="actions">
-          <button id="bookmark" type="button"
-            aria-pressed="${state.bookmarks.includes(id)}">
-            ${state.bookmarks.includes(id) ? "Remove bookmark" : "Bookmark lesson"}
-          </button>
-
-          <a href="${escapeHTML(lesson.docs)}" target="_blank" rel="noopener noreferrer">
-            Official documentation
-          </a>
+          <a class="button primary" href="#lesson/${next?.lesson || state.last}">Continue learning →</a>
+          <a class="button" href="#planner">View my week</a>
         </div>
+      </div>${art}</section>
+
+      <section class="metrics">
+        <div class="metric"><strong>${doneCount}/${TASKS.length}</strong><span>Activity blocks completed</span></div>
+        <div class="metric"><strong>${C.lessons.filter(l => completeLesson(l.id)).length}/${C.lessons.length}</strong><span>Lesson checkpoints</span></div>
+        <div class="metric"><strong>${overdue.length}</strong><span>Overdue activity blocks</span></div>
       </section>
 
       <section class="card">
-        ${heading("The idea, in plain English", lesson.icon)}
-        <p>${escapeHTML(lesson.explanation)}</p>
-        <h3>Annotated example</h3>
-        ${codeBox(lesson.code, lesson.language)}
+        <h2>Your next recommended activity</h2>
+        ${next ? `<p>${e(next.title)}</p><p class="muted">Scheduled: ${e(P.pretty(state.plan[next.id]))}</p>` :
+          '<p>You completed the foundation checkpoints. Re-run your first test and explain each tool before moving on.</p>'}
+        <progress value="${doneCount}" max="${TASKS.length}" aria-label="Activity completion"></progress>
+        <p class="small muted">Completion is learner-recorded. The website has not verified your local Python installation or test results.</p>
       </section>
 
+      ${overdue.length ? `<section class="card">
+        <span class="badge warning">Your plan can change</span>
+        <p>Missed sessions? Move unfinished work forward from the planner. Completed work stays recorded.</p>
+        <a class="button" href="#planner">Adjust my plan</a>
+      </section>` : ""}
+
+      <section class="card"><h2>Your foundation lessons</h2>${cards()}</section>`;
+  }
+
+  function onboarding() {
+    const p = state.profile || {
+      os: "windows", experience: "new", goal: "personal",
+      start: P.today(), minutes: 60, days: [1, 2, 3, 4, 5]
+    };
+
+    const option = (value, label, current) =>
+      `<option value="${value}" ${current === value ? "selected" : ""}>${label}</option>`;
+
+    main.innerHTML = `
+      <p class="eyebrow">MAKE THIS COURSE FIT YOUR LIFE</p>
+      <h1>Your learning profile</h1>
       <section class="card">
-        ${heading("Try it step by step", "route")}
-        ${list(lesson.steps, true)}
+        <p>No name, email, or account is required. These preferences stay in this browser.</p>
+        <form id="profile-form">
+          <div class="grid">
+            <div>
+              <label for="os">Which computer will you practice on?</label>
+              <select id="os">
+                ${option("windows", "Windows", p.os)}
+                ${option("mac", "macOS", p.os)}
+                ${option("linux", "Ubuntu 24.04 Linux", p.os)}
+              </select>
+              <p class="small muted">Other Linux distributions and phone-only setup are not covered by this guided installation path.</p>
+            </div>
+            <div>
+              <label for="experience">Your experience</label>
+              <select id="experience">
+                ${option("new", "I have never written code", p.experience)}
+                ${option("some", "I know a little coding", p.experience)}
+                ${option("experienced", "I already write code", p.experience)}
+              </select>
+            </div>
+            <div>
+              <label for="goal">Your main goal</label>
+              <select id="goal">
+                ${option("personal", "Understand automation", p.goal)}
+                ${option("team", "Automate my team's testing", p.goal)}
+                ${option("portfolio", "Build a portfolio", p.goal)}
+              </select>
+            </div>
+            <div>
+              <label for="start">Start or reschedule unfinished work from</label>
+              <input id="start" type="date" required min="2000-01-01" max="2100-12-31" value="${p.start}">
+            </div>
+            <div>
+              <label for="minutes">Available time on each study day</label>
+              <select id="minutes">
+                ${[30, 60, 90].map(n => option(n, `${n} minutes`, p.minutes)).join("")}
+              </select>
+            </div>
+          </div>
 
-        ${id === "installation" ? `
-          <p>
-            Official downloads:
-            <a href="https://nodejs.org/en/download"
-              target="_blank" rel="noopener noreferrer">Node.js</a>
-            ·
-            <a href="https://code.visualstudio.com/download"
-              target="_blank" rel="noopener noreferrer">VS Code</a>
-          </p>` : ""}
-      </section>
+          <fieldset><legend>Your study days</legend><div class="days">
+            ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => `
+              <label class="choice"><input type="checkbox" name="day" value="${index}"
+                ${p.days.includes(index) ? "checked" : ""}>${day}</label>`).join("")}
+          </div></fieldset>
 
-      <section class="card">
-        ${heading("Your exercise workspace", "code")}
-        <p>${escapeHTML(lesson.exercise)}</p>
-
-        <label for="editor">Your draft — saved in this browser</label>
-        <textarea id="editor" class="editor" spellcheck="false"></textarea>
-
-        <div class="actions">
-          <button id="copy-draft" type="button">Copy draft</button>
-          <button id="download-draft" type="button">Download draft</button>
-          <button id="compare" type="button">Compare with solution</button>
-        </div>
-
-        <p id="comparison" role="status"></p>
-        <p class="small muted">
-          Comparison checks text only. It does not compile TypeScript or run Playwright.
-          Different code can still be correct.
-        </p>
-
-        <h3>Need a little help?</h3>
-
-        ${lesson.hints.map((hint, number) => `
-          <details>
-            <summary>Hint ${number + 1}</summary>
-            <p>${escapeHTML(hint)}</p>
-          </details>
-        `).join("")}
-
-        <details id="solution">
-          <summary>Reveal sample solution</summary>
-          ${codeBox(lesson.solution, lesson.language)}
-        </details>
-      </section>
-
-      <section class="card">
-        ${heading("Expected behavior", "check")}
-        <p>${escapeHTML(lesson.expected)}</p>
-        <h3>Common mistakes and troubleshooting</h3>
-        ${list(lesson.mistakes)}
-      </section>
-
-      <section class="card">
-        ${heading("Quick knowledge check", "target")}
-        <form id="quiz">
-          <fieldset>
-            <legend>${escapeHTML(lesson.quiz.question)}</legend>
-            ${lesson.quiz.choices.map((choice, number) => `
-              <label class="choice">
-                <input type="radio" name="answer" value="${number}" required>
-                <span>${escapeHTML(choice)}</span>
-              </label>
-            `).join("")}
-          </fieldset>
-
-          <button class="primary" type="submit">Check answer</button>
-          <p id="quiz-result" role="status"></p>
+          <p class="small muted">
+            Activities are estimated at 15 minutes each. You can take longer.
+            Experience changes the guidance, not the evidence required.
+            Editing this profile reschedules unfinished work; completed dates and notes are retained.
+          </p>
+          <button class="primary">Save my personalized plan</button>
+          <p id="profile-error" role="alert"></p>
         </form>
-      </section>
+      </section>`;
+
+    $("#profile-form").onsubmit = event => {
+      event.preventDefault();
+      try {
+        const p = P.profile({
+          os: $("#os").value, experience: $("#experience").value, goal: $("#goal").value,
+          start: $("#start").value, minutes: Number($("#minutes").value),
+          days: [...document.querySelectorAll('[name="day"]:checked')].map(x => Number(x.value))
+        });
+        const plan = P.schedule(TASKS, p, state.done, p.start);
+        state.profile = p;
+        state.plan = plan;
+        save();
+        selectedWeek = P.monday(p.start);
+        location.hash = "planner";
+        notify("Your plan is ready. Start with one small activity.");
+      } catch (error) {
+        $("#profile-error").textContent = error.message;
+      }
+    };
+  }
+
+  function requireProfile() {
+    if (state.profile) return true;
+    main.innerHTML = `<section class="card"><h1>Choose your setup first</h1>
+      <p>Your operating system determines the commands and your study days determine the planner.</p>
+      <a class="button primary" href="#onboarding">Create my learning profile</a></section>`;
+    return false;
+  }
+
+  function taskLink(task) {
+    return `<a class="task ${state.done[task.id] ? "done" : ""}" href="#lesson/${task.lesson}">
+      ${state.done[task.id] ? "✓ " : ""}${e(task.title)}
+      <small>15 minutes · ${state.done[task.id] ? "learner-recorded complete" : "open lesson to work"}</small>
+    </a>`;
+  }
+
+  function planner() {
+    if (!requireProfile()) return;
+    const today = P.today();
+    const overdue = TASKS.filter(t => !state.done[t.id] && state.plan[t.id] < today);
+    const pending = TASKS.filter(t => !state.done[t.id]);
+    const end = pending.length ? state.plan[pending[pending.length - 1].id] : null;
+
+    main.innerHTML = `
+      <p class="eyebrow">CONSISTENCY WITHOUT GUILT</p>
+      <h1>Your weekly planner</h1>
+      <p class="muted">Only the nine delivered lessons are scheduled.
+        ${end ? `Estimated foundation finish: ${e(P.pretty(end))}.` : "Foundation activities complete."}
+        Dates are day-based, not timed appointments.</p>
 
       <section class="card">
-        <span class="badge">DEMO MODE — NOT LIVE AI</span>
-        ${heading("Your learning companion", "sparkles")}
-        <p>This helper provides predefined lesson hints. It does not inspect your
-        draft, call an AI provider, or send your code anywhere.</p>
-
         <div class="actions">
-          <button id="explain" type="button">Explain the idea again</button>
-          <button id="tutor-hint" type="button">Give me the next hint</button>
+          <button id="previous-week">← Previous week</button>
+          <button id="this-week">This week</button>
+          <button id="next-week">Next week →</button>
+          <button id="next-work">Next unfinished activity</button>
+          <button id="calendar">Export calendar</button>
         </div>
+        <h2 style="margin-top:20px">Week of ${e(P.pretty(selectedWeek))}</h2>
+        <p class="small muted">Calendar export contains unfinished activities as all-day reminders.
+        Re-import behavior depends on your calendar app; remove an older imported calendar if duplicates appear.</p>
+      </section>
 
-        <p id="tutor-answer" role="status"></p>
+      <div class="week-grid">
+        ${Array.from({ length: 7 }, (_, index) => {
+          const day = P.add(selectedWeek, index);
+          const entries = TASKS.filter(task => state.plan[task.id] === day);
+          return `<section class="day ${day === today ? "today" : ""}">
+            <h3>${e(P.pretty(day))}</h3>
+            <p class="small muted">${entries.length * 15} planned/recorded minutes</p>
+            ${entries.length ? entries.map(taskLink).join("") : '<p class="small muted">Rest, review, or free time.</p>'}
+          </section>`;
+        }).join("")}
+      </div>
+
+      <section class="card" style="margin-top:22px">
+        <h2>Adjust the plan—not your self-worth</h2>
+        <p>${overdue.length} unfinished blocks are before today.</p>
+        <div class="actions">
+          <button id="catch-up">Reschedule unfinished work from today</button>
+          <button id="pause">Take a 7-day break, then resume</button>
+          <a class="button" href="#onboarding">Change study days or session length</a>
+        </div>
+        <p class="small muted">These actions rebuild future activity dates in lesson order.
+        They preserve completion records, drafts, quizzes, and notes.</p>
+      </section>
+
+      ${overdue.length ? `<section class="card"><h2>Unfinished earlier work</h2>
+        ${overdue.map(taskLink).join("")}</section>` : ""}`;
+
+    $("#previous-week").onclick = () => { selectedWeek = P.add(selectedWeek, -7); planner(); };
+    $("#next-week").onclick = () => { selectedWeek = P.add(selectedWeek, 7); planner(); };
+    $("#this-week").onclick = () => { selectedWeek = P.monday(today); planner(); };
+    $("#next-work").onclick = () => {
+      selectedWeek = P.monday(pending.length ? state.plan[pending[0].id] : today);
+      planner();
+    };
+    $("#calendar").onclick = () => download(
+      P.calendar(TASKS, state.plan, state.done), "launchpad-plan.ics", "text/calendar;charset=utf-8"
+    );
+
+    function replan(from, message) {
+      if (!confirm(message)) return;
+      const anchor = from > state.profile.start ? from : state.profile.start;
+      state.plan = P.schedule(TASKS, state.profile, state.done, anchor);
+      save();
+      selectedWeek = P.monday(anchor);
+      planner();
+      notify("Unfinished work rescheduled. Completed work was preserved.");
+    }
+
+    $("#catch-up").onclick = () => replan(today, "Move all unfinished work forward from today, preserving completed records?");
+    $("#pause").onclick = () => replan(P.add(today, 7), "Resume unfinished work on an allowed study day at least seven days from today?");
+  }
+
+  function lessonPage(id) {
+    if (!requireProfile()) return;
+    const lesson = C.lessons.find(item => item.id === id);
+    if (!lesson) return notFound();
+
+    state.last = id;
+    const entry = work(lesson);
+    save();
+
+    const index = C.lessons.indexOf(lesson);
+    const previous = C.lessons[index - 1];
+    const next = C.lessons[index + 1];
+    const system = C.systems[state.profile.os];
+
+    main.innerHTML = `
+      <p class="small muted"><a href="#dashboard">Dashboard</a> / Foundation / Lesson ${index + 1}</p>
+      <span class="badge">BEGINNER · ${e(system.label)}</span>
+      <h1>${e(lesson.title)}</h1>
+
+      ${previous && !completeLesson(previous.id) ? `<section class="card">
+        <span class="badge warning">Prerequisite reminder</span>
+        <p>The previous checkpoint is incomplete. You can preview this lesson, but finish
+        <a href="#lesson/${previous.id}">${e(previous.title)}</a> before relying on its setup.</p>
+      </section>` : ""}
+
+      <section class="card">
+        <h2>Your outcome</h2><p>${e(lesson.objective)}</p>
+        <p><strong>Prerequisite:</strong> ${e(lesson.prerequisite)}</p>
+        <p class="small muted">${state.profile.experience === "new"
+          ? "New to technology? Read each step before performing it. Stop at errors rather than copying the next command."
+          : "Already familiar? You may review quickly, but still verify the checkpoint evidence."}</p>
       </section>
 
       <section class="card">
-        ${heading("Make it stick", "note")}
-        <label for="notes">Your notes — use non-sensitive information only</label>
-        <textarea id="notes" rows="5"></textarea>
+        <h2>The idea in plain English</h2><p>${e(lesson.explanation)}</p>
+        <h3>New words</h3>${list(lesson.vocabulary)}
+        ${lesson.diagram ? `<div class="flow">${lesson.diagram.map(x => `<span>${e(x)}</span>`).join('<b aria-hidden="true">→</b>')}</div>` : ""}
+      </section>
 
-        <h3>Optional advanced challenge</h3>
-        <p>${escapeHTML(lesson.challenge)}</p>
+      <section class="card">
+        <h2>Follow along</h2>${list(lesson.steps, true)}
+        ${lesson.osSteps ? `<h3>${e(system.label)} instructions</h3>${list(lesson.osSteps[state.profile.os], true)}` : ""}
+        <h3>Example / commands</h3>${code(lesson.example)}
+        <p class="small muted">Copy code into the file when instructed; commands go in the terminal.
+        Run one command at a time. Do not paste every block indiscriminately.</p>
+      </section>
+
+      <section class="card">
+        <h2>Your independent exercise</h2><p>${e(lesson.exercise)}</p>
+        <label for="draft">Your draft or response</label>
+        <textarea id="draft" class="editor" maxlength="20000" spellcheck="false"></textarea>
+        <div class="actions">
+          <button id="copy-draft">Copy draft</button>
+          <button id="download-draft">Download draft</button>
+          <button id="compare">Compare sample text</button>
+        </div>
+        <p id="comparison" role="status"></p>
+        <p class="small muted">This editor does not execute code. Text comparison is not a test result.</p>
+        ${lesson.hints.map((hint, i) => `<details><summary>Hint ${i + 1}</summary><p>${e(expand(hint))}</p></details>`).join("")}
+        <details id="solution"><summary>Reveal reference solution</summary>${code(lesson.solution)}</details>
+      </section>
+
+      <section class="card">
+        <h2>What should happen?</h2><p>${e(lesson.expected)}</p>
+        <h3>If something goes wrong</h3>${list(lesson.mistakes)}
+        <h3>Stretch challenge</h3><p>${e(lesson.challenge)}</p>
+      </section>
+
+      <section class="card">
+        <h2>Knowledge checkpoint</h2>
+        <form id="quiz"><fieldset><legend>${e(lesson.quiz.question)}</legend>
+          ${lesson.quiz.options.map((option, i) => `
+            <label class="choice"><input type="radio" name="answer" value="${i}" required
+              ${entry.answer === i ? "checked" : ""}>${e(option)}</label>`).join("")}
+        </fieldset><button class="primary">Check answer</button>
+        <p id="quiz-result" role="status"></p></form>
+      </section>
+
+      <section class="card">
+        <h2>Evidence, not just a checkbox</h2>
+        <p class="small muted">Record your actual result. Do not include usernames, private paths, keys, or personal information.</p>
+        ${lesson.checks.map((check, i) => `<label class="choice">
+          <input type="checkbox" data-evidence-check="${i}" ${entry.checks[i] ? "checked" : ""}>
+          ${e(check)}</label>`).join("")}
+        <label for="evidence">What did you observe or produce?</label>
+        <textarea id="evidence" rows="4" maxlength="20000"></textarea>
+        <label for="notes">Personal learning notes</label>
+        <textarea id="notes" rows="4" maxlength="20000"></textarea>
+      </section>
+
+      <section class="card">
+        <h2>Your four activity blocks</h2>
+        <p class="small muted">Complete these in order. The final block requires the correct quiz answer,
+        all evidence checks, and a written observation. Local execution remains self-reported.</p>
+        ${P.stages.map(stage => {
+          const done = state.done[`${id}:${stage.id}`];
+          return `<div class="stage"><span>${e(stage.title)} · 15-minute estimate</span>
+            <button data-stage="${stage.id}" ${done ? "disabled" : ""}>${done ? "✓ Recorded complete" : "Mark this activity complete"}</button></div>`;
+        }).join("")}
+        <button id="reopen" style="margin-top:15px">Reopen this lesson's progress</button>
+      </section>
+
+      <section class="card"><h2>Official references</h2>
+        <ul>${lesson.docs.map(url => `<li><a href="${e(url)}" target="_blank" rel="noopener noreferrer">${e(url)}</a></li>`).join("")}</ul>
       </section>
 
       <div class="actions">
-        ${previous
-          ? `<a class="button" href="#lesson/${previous.id}">Previous lesson</a>`
-          : ""}
-
-        <button id="complete" class="primary" type="button">
-          ${state.completed.includes(id) ? "Mark incomplete" : "Mark lesson complete"}
-        </button>
-
-        ${next
-          ? `<a class="button" href="#lesson/${next.id}">Next lesson ${icon("arrow")}</a>`
-          : '<a class="button" href="#dashboard">Back to dashboard</a>'}
+        ${previous ? `<a class="button" href="#lesson/${previous.id}">← Previous lesson</a>` : ""}
+        <a class="button" href="#planner">My planner</a>
+        ${next ? `<a class="button primary" href="#lesson/${next.id}">Next lesson →</a>` : '<a class="button primary" href="#roadmap">See the full roadmap</a>'}
       </div>`;
 
-    $("#editor").value = state.drafts[id] ?? lesson.starter;
-    $("#notes").value = state.notes[id] ?? "";
+    for (const field of ["draft", "evidence", "notes"]) {
+      $("#" + field).value = entry[field];
+      $("#" + field).oninput = event => {
+        entry[field] = event.target.value;
+        save();
+      };
+    }
 
-    $("#editor").addEventListener("input", (event) => {
-      state.drafts[id] = event.target.value;
-      saveState();
+    document.querySelectorAll("[data-evidence-check]").forEach(input => {
+      input.onchange = () => {
+        entry.checks[Number(input.dataset.evidenceCheck)] = input.checked;
+        save();
+      };
     });
 
-    $("#notes").addEventListener("input", (event) => {
-      state.notes[id] = event.target.value;
-      saveState();
-    });
-
-    $("#copy-draft").onclick = () => copyText($("#editor").value);
-
-    $("#download-draft").onclick = () => {
-      downloadText($("#editor").value, lesson.file);
-    };
-
+    $("#copy-draft").onclick = () => copy(entry.draft);
+    $("#download-draft").onclick = () => download(
+      entry.draft,
+      id === "first-test" ? "test_first.py" : id === "hello" ? "hello.py" : `${id}-notes.txt`
+    );
     $("#compare").onclick = () => {
-      const same = $("#editor").value.trim() === lesson.solution.trim();
-
-      $("#comparison").textContent = same
-        ? "Your text matches the sample. It has NOT been executed."
-        : "Your draft differs from the sample. Compare the code below; different code may still be correct.";
-
       $("#solution").open = true;
+      $("#comparison").textContent = entry.draft.trim() === expand(lesson.solution).trim()
+        ? "Text matches the reference. It has not been executed."
+        : "Text differs. Compare the reference below; different answers may still be valid.";
     };
 
-    $("#bookmark").onclick = () => {
-      const exists = state.bookmarks.includes(id);
-
-      state.bookmarks = exists
-        ? state.bookmarks.filter((item) => item !== id)
-        : [...state.bookmarks, id];
-
-      saveState();
-
-      $("#bookmark").textContent = exists ? "Bookmark lesson" : "Remove bookmark";
-      $("#bookmark").setAttribute("aria-pressed", String(!exists));
-
-      notify(exists ? "Bookmark removed." : "Lesson bookmarked.");
-    };
-
-    $("#complete").onclick = () => {
-      const exists = state.completed.includes(id);
-
-      state.completed = exists
-        ? state.completed.filter((item) => item !== id)
-        : [...state.completed, id];
-
-      saveState();
-      updateNavigation();
-
-      $("#complete").textContent = exists ? "Mark lesson complete" : "Mark incomplete";
-
-      notify(exists
-        ? "Lesson marked incomplete."
-        : "Progress saved. Nice work taking another step!");
-    };
-
-    function showQuizResult(answer) {
-      const correct = answer === lesson.quiz.correct;
-
+    function quizFeedback() {
+      if (entry.answer === null) return;
       $("#quiz-result").textContent =
-        (correct ? "Correct! " : "Not quite. ") + lesson.quiz.explanation;
+        (entry.answer === lesson.quiz.answer ? "Correct. " : "Not quite. ") + lesson.quiz.why;
     }
-
-    const savedAnswer = state.quizzes[id];
-
-    if (Number.isInteger(savedAnswer)) {
-      $(`#quiz input[value="${savedAnswer}"]`).checked = true;
-      showQuizResult(savedAnswer);
-    }
-
-    $("#quiz").onsubmit = (event) => {
+    quizFeedback();
+    $("#quiz").onsubmit = event => {
       event.preventDefault();
-
-      const formData = new FormData(event.currentTarget);
-      const answer = Number(formData.get("answer"));
-
-      state.quizzes[id] = answer;
-      saveState();
-      showQuizResult(answer);
+      entry.answer = Number(new FormData(event.currentTarget).get("answer"));
+      save();
+      quizFeedback();
     };
 
-    let hintIndex = 0;
+    document.querySelectorAll("[data-stage]").forEach(button => {
+      button.onclick = () => {
+        const stage = button.dataset.stage;
+        const position = P.stages.findIndex(s => s.id === stage);
+        if (P.stages.slice(0, position).some(s => !state.done[`${id}:${s.id}`])) {
+          notify("Complete the earlier activity blocks first.");
+          return;
+        }
+        if (stage === "check" &&
+            (entry.answer !== lesson.quiz.answer ||
+             !lesson.checks.every((_, i) => entry.checks[i]) ||
+             !entry.evidence.trim())) {
+          notify("First pass the quiz, complete the evidence checks, and write your actual observation.");
+          return;
+        }
 
-    $("#explain").onclick = () => {
-      $("#tutor-answer").textContent = `Demo explanation: ${lesson.explanation}`;
-    };
+        const taskId = `${id}:${stage}`;
+        state.done[taskId] = P.today();
+        state.plan[taskId] = P.today();
+        save();
+        button.disabled = true;
+        button.textContent = "✓ Recorded complete";
+        nav();
+        notify("Activity recorded. This is your learning record, not an automated verification.");
+      };
+    });
 
-    $("#tutor-hint").onclick = () => {
-      $("#tutor-answer").textContent = hintIndex < lesson.hints.length
-        ? `Demo hint: ${lesson.hints[hintIndex++]}`
-        : "You have seen all the hints. Reveal the sample solution when you are ready.";
+    $("#reopen").onclick = () => {
+      if (!confirm("Reopen all four activities for this lesson? Notes and quiz answers will remain.")) return;
+      P.stages.forEach(stage => delete state.done[`${id}:${stage.id}`]);
+      const anchor = state.profile.start > P.today() ? state.profile.start : P.today();
+      state.plan = P.schedule(TASKS, state.profile, state.done, anchor);
+      save();
+      lessonPage(id);
+      nav();
     };
   }
 
   function roadmap() {
     main.innerHTML = `
-      <p class="eyebrow">BEGINNER → ADVANCED</p>
-      <h1>Your learning roadmap</h1>
-      <p class="muted">
-        Follow the levels in order. Five starter lessons are fully written;
-        the remaining topics are explicitly marked as planned.
-      </p>
-
-      ${DATA.modules.map((module, index) => `
-        <section class="card roadmap-step" data-step="${index + 1}">
-          <span class="badge">${escapeHTML(module.level)}</span>
-          <h2>${escapeHTML(module.title)}</h2>
-
-          <p><strong>After this level:</strong> ${escapeHTML(module.outcome)}</p>
-          <p class="small muted">
-            Prerequisite: ${index === 0 ? "none" : `level ${index}`}
-            · ${escapeHTML(module.status)}
-          </p>
-
-          ${list(module.topics)}
-        </section>
-      `).join("")}`;
+      <p class="eyebrow">THE LONG-TERM JOURNEY</p><h1>From first folder to framework</h1>
+      <section class="card"><p>The proposed long-term program is roughly 24 weeks at five
+      one-hour sessions per week, but that is a planning estimate—not a promise of expertise.</p>
+      <p>Your working planner currently schedules only this delivered foundation package.</p></section>
+      ${C.roadmap.map(([title, status], i) => `<section class="card roadmap">
+        <span class="badge">${e(status)}</span><h2>${i + 1}. ${e(title)}</h2>
+      </section>`).join("")}`;
   }
 
-  function projects() {
+  function ai() {
     main.innerHTML = `
-      <p class="eyebrow">BUILD SOMETHING REAL</p>
-      <h1>Your project roadmap</h1>
-      <p class="muted">
-        These are planned project briefs. Complete starter packs, detailed
-        requirements, and completion assessments are not included yet.
-      </p>
-
-      ${DATA.projects.map((project, index) => `
-        <section class="card">
-          <span class="badge">PROJECT ${index + 1} · PLANNED</span>
-          ${heading(project.title, "trophy")}
-          <p>${escapeHTML(project.outcome)}</p>
-          <h3>Proposed milestones</h3>
-          ${list(project.milestones, true)}
-        </section>
-      `).join("")}`;
-  }
-
-  function practice() {
-    main.innerHTML = `
-      <p class="eyebrow">A SAFE PLACE TO EXPERIMENT</p>
-      <h1>Practice application</h1>
-      <p class="muted">
-        Use fictional data only. This is a front-end demonstration:
-        no real accounts are created and selected files are not uploaded.
-        Practice form state resets when you leave this page.
-      </p>
-
-      <div class="grid">
-        <section class="card">
-          ${heading("Demo login", "shield")}
-          <p class="small">
-            Email: <code>learner@example.com</code><br>
-            Password: <code>practice123</code>
-          </p>
-
-          <form id="login-form">
-            <label for="email">Email</label>
-            <input id="email" type="email" autocomplete="off" required>
-
-            <label for="password">Password</label>
-            <input id="password" type="password" autocomplete="off" required>
-
-            <button class="primary" type="submit">Sign in</button>
-            <p id="login-result" data-testid="login-result" role="status"></p>
-          </form>
-        </section>
-
-        <section class="card">
-          ${heading("Profile form", "note")}
-          <form id="profile-form">
-            <label for="display-name">Display name</label>
-            <input id="display-name" minlength="2" maxlength="30" required>
-
-            <label for="experience">Experience</label>
-            <select id="experience">
-              <option>Beginner</option>
-              <option>Intermediate</option>
-              <option>Advanced</option>
-            </select>
-
-            <label class="choice">
-              <input id="updates" type="checkbox">
-              <span>Receive practice updates</span>
-            </label>
-
-            <button type="submit">Save profile</button>
-            <p id="profile-result" role="status"></p>
-          </form>
-        </section>
-      </div>
-
+      <p class="eyebrow">A SEPARATE LEARNING TRACK</p><h1>AI Integration Academy</h1>
       <section class="card">
-        ${heading("Product explorer", "target")}
-        <label for="product-search">Filter products</label>
-        <input id="product-search" type="search" placeholder="Try keyboard">
-
-        <div class="table-wrap">
-          <table>
-            <caption>Fictional practice products</caption>
-            <thead>
-              <tr>
-                <th scope="col">Product</th>
-                <th scope="col">Price</th>
-              </tr>
-            </thead>
-            <tbody id="products"></tbody>
-          </table>
-        </div>
-
-        <p id="product-count" role="status"></p>
+        <span class="badge warning">INTRODUCTION ONLY · NO LIVE PROVIDER</span>
+        <h2>Start with safe assistance</h2>
+        <p>Use AI to explain terminology, ask for smaller steps, or review a sanitized draft.
+        Do not paste credentials, private company code, personal information, or unredacted logs.</p>
+        <p>Ask for evidence and uncertainty. Check suggested APIs against official documentation.
+        Run tests yourself. A generated explanation is not proof of execution.</p>
+        <h3>Try this prompt in an approved tool</h3>
+        ${code("I am learning Python with no technical background.\nExplain the difference between an editor, terminal, and interpreter.\nUse a simple example, ask me one understanding question, and do not assume I installed anything.")}
       </section>
+      <div class="grid">
+        <section class="card"><h2>Track A: Use AI critically</h2>
+          <p>Planned: scenario design, code review, hallucinated APIs, weak assertions, and safe failure investigation.</p></section>
+        <section class="card"><h2>Track B: Assisted automation</h2>
+          <p>Planned: supervised editor workflows, browser evidence, and reviewing proposed test repairs.</p></section>
+        <section class="card"><h2>Track C: Build a real tutor</h2>
+          <p>Planned: a Python backend, provider credentials on the server, request validation, usage limits,
+          error handling, and tests. No frontend API keys.</p></section>
+      </div>`;
+  }
 
+  function backup() {
+    main.innerHTML = `
+      <h1>Your learning data</h1>
       <section class="card">
-        ${heading("File selection playground", "code")}
-        <label for="practice-file">Choose a practice file</label>
-        <input id="practice-file" type="file">
-
-        <p id="file-result" role="status">No file selected.</p>
-        <p class="small muted">
-          Only the filename is displayed. File contents are not read or sent.
-        </p>
+        <h2>Export a backup</h2>
+        <p>Download your profile, dates, notes, drafts, quizzes, and completion records.
+        Treat the file as personal data. No server receives it.</p>
+        <button id="export" class="primary">Download JSON backup</button>
+      </section>
+      <section class="card">
+        <h2>Restore on this browser</h2>
+        <p>Importing replaces the current learning record after validation and confirmation.
+        It does not merge two learners' records.</p>
+        <label for="import">Choose a Launchpad JSON backup</label>
+        <input type="file" id="import" accept=".json,application/json">
+        <p id="import-result" role="status"></p>
+      </section>
+      <section class="card">
+        <h2>Implementation checks</h2>
+        <p>Run the included scheduler checks in a separate page. These test planner logic,
+        not the learner's Python installation or the complete website UI.</p>
+        <a class="button" href="./checks.html">Open planner checks</a>
       </section>`;
 
-    $("#login-form").onsubmit = (event) => {
-      event.preventDefault();
+    $("#export").onclick = () => download(
+      JSON.stringify(state, null, 2), `launchpad-backup-${P.today()}.json`, "application/json"
+    );
 
-      const valid =
-        $("#email").value === "learner@example.com" &&
-        $("#password").value === "practice123";
-
-      $("#login-result").textContent = valid
-        ? "Welcome, learner!"
-        : "Invalid practice credentials.";
-    };
-
-    $("#profile-form").onsubmit = (event) => {
-      event.preventDefault();
-
-      $("#profile-result").textContent =
-        `Profile saved for ${$("#display-name").value} — ${$("#experience").value}. ` +
-        `Practice updates: ${$("#updates").checked ? "yes" : "no"}.`;
-    };
-
-    const products = [
-      { name: "Keyboard", price: "$45" },
-      { name: "Mouse", price: "$20" },
-      { name: "Monitor", price: "$180" }
-    ];
-
-    function filterProducts() {
-      const query = $("#product-search").value.toLowerCase().trim();
-
-      const results = products.filter((product) =>
-        product.name.toLowerCase().includes(query)
-      );
-
-      $("#products").innerHTML = results.map((product) => `
-        <tr>
-          <td>${escapeHTML(product.name)}</td>
-          <td>${escapeHTML(product.price)}</td>
-        </tr>
-      `).join("");
-
-      $("#product-count").textContent = `${results.length} products shown`;
-    }
-
-    $("#product-search").oninput = filterProducts;
-    filterProducts();
-
-    $("#practice-file").onchange = (event) => {
+    $("#import").onchange = async event => {
       const file = event.target.files[0];
-
-      $("#file-result").textContent = file
-        ? `Selected: ${file.name}`
-        : "No file selected.";
+      if (!file) return;
+      try {
+        if (file.size > 2_000_000) throw new Error("Backup exceeds the 2 MB limit.");
+        const restored = P.validateBackup(JSON.parse(await file.text()), C.lessons);
+        if (!confirm("Replace this browser's learning record with the validated backup? Export your current record first if needed.")) return;
+        state = restored;
+        save();
+        applyTheme();
+        nav();
+        $("#import-result").textContent = "Backup restored. Open the dashboard or planner.";
+      } catch (error) {
+        $("#import-result").textContent = `Import rejected: ${error.message}`;
+      }
     };
-  }
-
-  function glossary() {
-    main.innerHTML = `
-      <p class="eyebrow">LESS JARGON. MORE CLARITY.</p>
-      <h1>Your automation glossary</h1>
-
-      <label for="glossary-search">Search terms</label>
-      <input id="glossary-search" type="search" placeholder="Try assertion">
-
-      <div id="terms"></div>`;
-
-    function filterTerms() {
-      const query = $("#glossary-search").value.toLowerCase().trim();
-
-      const results = DATA.glossary.filter(([term, meaning]) =>
-        `${term} ${meaning}`.toLowerCase().includes(query)
-      );
-
-      $("#terms").innerHTML = results.length
-        ? results.map(([term, meaning]) => `
-          <section class="card">
-            ${heading(term)}
-            <p>${escapeHTML(meaning)}</p>
-          </section>
-        `).join("")
-        : '<p class="muted">No matching terms.</p>';
-    }
-
-    $("#glossary-search").oninput = filterTerms;
-    filterTerms();
-  }
-
-  function prompts() {
-    main.innerHTML = `
-      <p class="eyebrow">THINK CLEARLY. PROMPT CAREFULLY.</p>
-      <h1>Your AI prompt library</h1>
-
-      <section class="card">
-        ${heading("AI is an assistant, not proof", "shield")}
-        <p>
-          Remove credentials, tokens, personal information, and proprietary data
-          before sharing material with an AI service. Follow your organization's rules.
-        </p>
-        <p>
-          Check suggested APIs against official documentation, review the assertions,
-          and execute the tests yourself. No live AI provider is connected here.
-        </p>
-      </section>
-
-      ${DATA.prompts.map((prompt) => `
-        <section class="card">
-          ${heading(prompt.title, "sparkles")}
-          ${codeBox(prompt.text, "text")}
-        </section>
-      `).join("")}`;
   }
 
   function notFound() {
-    main.innerHTML = `
-      <section class="card">
-        <h1>That page is not here yet.</h1>
-        <p>Let's get you back to your learning journey.</p>
-        <a class="button primary" href="#dashboard">Open dashboard</a>
-      </section>`;
+    main.innerHTML = `<section class="card"><h1>Page not found</h1><a href="#dashboard">Return to dashboard</a></section>`;
   }
 
   function applyTheme() {
     document.documentElement.dataset.theme = state.theme;
-    $("#theme-toggle").textContent =
-      state.theme === "dark" ? "Light mode" : "Dark mode";
-  }
-
-  function closeMobileMenu() {
-    if (!window.matchMedia("(max-width: 760px)").matches) return;
-
-    $("#layout").classList.add("menu-hidden");
-    $("#menu-toggle").setAttribute("aria-expanded", "false");
+    $("#theme").textContent = state.theme === "dark" ? "Light mode" : "Dark mode";
   }
 
   function render() {
     const route = location.hash.slice(1) || "dashboard";
-
-    // Preserve the skip link without replacing the current page.
-    if (route === "main") {
-      main.focus();
-      return;
+    if (route.startsWith("lesson/")) lessonPage(route.slice(7));
+    else {
+      const pages = { dashboard, onboarding, planner, roadmap, ai, backup };
+      if (Object.prototype.hasOwnProperty.call(pages, route)) pages[route]();
+      else notFound();
     }
-
-    if (route.startsWith("lesson/")) {
-      renderLesson(route.slice("lesson/".length));
-    } else {
-      const routes = {
-        dashboard,
-        roadmap,
-        practice,
-        projects,
-        glossary,
-        prompts
-      };
-
-      if (Object.prototype.hasOwnProperty.call(routes, route)) {
-        routes[route]();
-      } else {
-        notFound();
-      }
-    }
-
-    updateNavigation();
-
-    const title = main.querySelector("h1")?.textContent || "Learn";
-    document.title = `${title} | Playwright Academy`;
-
+    nav();
+    document.title = `${main.querySelector("h1")?.textContent || "Learn"} | Launchpad`;
     main.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }
 
-  $("#theme-toggle").onclick = () => {
+  $("#theme").onclick = () => {
     state.theme = state.theme === "dark" ? "light" : "dark";
-    saveState();
     applyTheme();
+    save();
   };
-
-  $("#menu-toggle").onclick = () => {
-    const hidden = $("#layout").classList.toggle("menu-hidden");
-    $("#menu-toggle").setAttribute("aria-expanded", String(!hidden));
+  $("#menu").onclick = () => {
+    const hidden = $("#layout").classList.toggle("collapsed");
+    $("#menu").setAttribute("aria-expanded", String(!hidden));
   };
-
-  $("#lesson-search").oninput = updateNavigation;
-
-  $("#sidebar").addEventListener("click", (event) => {
-    if (event.target.closest("a")) closeMobileMenu();
-  });
-
-  $(".skip-link").addEventListener("click", (event) => {
+  $("#search").oninput = nav;
+  $("#sidebar").onclick = event => {
+    if (event.target.closest("a") && matchMedia("(max-width:760px)").matches) {
+      $("#layout").classList.add("collapsed");
+      $("#menu").setAttribute("aria-expanded", "false");
+    }
+  };
+  $(".skip").onclick = event => {
     event.preventDefault();
     main.focus();
     main.scrollIntoView();
-  });
+  };
+
+  if (matchMedia("(max-width:760px)").matches) {
+    $("#layout").classList.add("collapsed");
+    $("#menu").setAttribute("aria-expanded", "false");
+  }
 
   window.addEventListener("hashchange", render);
-
-  loadState();
   applyTheme();
-  closeMobileMenu();
   render();
-
-  if (storageFailed) {
-    notify("Saved progress could not be loaded. Browser storage may be unavailable.");
-  }
+  if (storageWarning) notify("Saved data could not be loaded. Restore a backup if available.");
 })();

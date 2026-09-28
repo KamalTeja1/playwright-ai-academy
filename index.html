@@ -1,84 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="description"
-        content="Learn Playwright through beginner-friendly lessons, exercises, and practice.">
-
-  <title>Playwright Academy</title>
-
+        content="A beginner-friendly Python and Playwright learning academy.">
+  <title>Launchpad — Python & Playwright Academy</title>
   <link rel="stylesheet" href="./styles.css">
-
-  <script src="./course.js" defer></script>
+  <script src="./content.js" defer></script>
+  <script src="./planner.js" defer></script>
   <script src="./app.js" defer></script>
 </head>
-
 <body>
-  <a href="#main" class="skip-link">Skip to content</a>
+  <a class="skip" href="#main">Skip to content</a>
 
   <header class="topbar">
-    <a class="brand" href="#dashboard" aria-label="Playwright Academy home">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>
-        </svg>
-      </span>
-      <span>Playwright <strong>Academy</strong></span>
+    <a href="#dashboard" class="brand">
+      <span class="brand-icon" aria-hidden="true">↗</span>
+      <span>Launchpad <small>PYTHON + PLAYWRIGHT</small></span>
     </a>
-
-    <div class="toolbar">
-      <span class="header-label">Learn. Practice. Build.</span>
-      <button id="menu-toggle" type="button"
-              aria-controls="sidebar" aria-expanded="true">
-        Menu
-      </button>
-      <button id="theme-toggle" type="button">Dark mode</button>
+    <div class="actions">
+      <button id="menu" aria-controls="sidebar" aria-expanded="true">Menu</button>
+      <button id="theme">Dark mode</button>
     </div>
   </header>
 
   <div class="layout" id="layout">
     <aside id="sidebar">
-      <p class="eyebrow">YOUR LEARNING SPACE</p>
+      <p class="eyebrow">YOUR NEXT CHAPTER</p>
+      <nav id="navigation" aria-label="Main navigation"></nav>
+      <hr>
+      <label for="search">Find a lesson</label>
+      <input id="search" type="search" placeholder="Try Python or folders">
+      <nav id="lessons" aria-label="Foundation lessons"></nav>
 
-      <nav class="main-nav" id="main-nav" aria-label="Main navigation"></nav>
-
-      <div class="sidebar-divider"></div>
-
-      <label for="lesson-search" class="search-label">Find a lesson</label>
-      <input id="lesson-search" type="search"
-             placeholder="Search lessons…" autocomplete="off">
-
-      <nav id="lesson-nav" aria-label="Available lessons"></nav>
-
-      <div class="sidebar-tip">
-        <strong>One small step today.</strong>
-        <p>You do not need to know everything before you start.</p>
-      </div>
-
-      <p class="small muted">
-        Progress stays in this browser. Never save passwords,
-        personal information, or API keys in your notes.
+      <section class="side-note">
+        <strong>You belong here.</strong>
+        <p>No technical background required. One useful step at a time.</p>
+      </section>
+      <p class="muted small">
+        Progress stays in this browser. Export a backup before clearing browser data.
       </p>
     </aside>
 
     <main id="main" tabindex="-1">
       <noscript>
-        <section class="card">
-          <h1>JavaScript is required</h1>
-          <p>Enable JavaScript to use the lessons and interactive exercises.</p>
-        </section>
+        <h1>Enable JavaScript</h1>
+        <p>This learning application needs JavaScript for navigation and saved progress.</p>
       </noscript>
     </main>
   </div>
 
   <footer>
-    Independent learning project · Playwright examples: 1.63.0
-    · Tutor: demo mode · Tests run locally
+    Foundation package · Python-first · No live AI · No server-side test execution
   </footer>
 
-  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  <div id="notice" role="status" aria-live="polite"></div>
 </body>
 </html>
