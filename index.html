@@ -2,17 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <meta name="color-scheme" content="light dark">
-  <meta name="description"
-        content="A beginner-friendly Python and Playwright learning academy.">
 
-  <title>Launchpad — Python & Playwright Academy</title>
+  <meta
+    name="description"
+    content="Learn Python and Playwright through guided lessons, practical exercises, MCQ assessments, a personalized weekly planner, and reporting tutorials."
+  >
 
+  <title>Launchpad — Python &amp; Playwright Academy</title>
+
+  <!-- Base blue/green design system -->
   <link rel="stylesheet" href="./styles.css">
+
+  <!-- Visual enhancements -->
   <link rel="stylesheet" href="./experience.css">
 
+  <!--
+    Keep this order:
+    1. Original foundation lessons
+    2. Expanded lessons and MCQ data
+    3. Planner and progress migration
+    4. Application interface
+    5. Visual enhancements and quick search
+  -->
   <script src="./content.js" defer></script>
+  <script src="./curriculum.js" defer></script>
   <script src="./planner.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./experience.js" defer></script>
@@ -21,16 +38,25 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
+  <!-- Header -->
   <header class="topbar">
-    <a href="#dashboard" class="brand">
+    <a href="#dashboard" class="brand" aria-label="Launchpad home">
       <span class="brand-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          focusable="false"
+        >
           <path d="M14 5c3-2 5-2 7-2 0 2 0 4-2 7l-6 6-5-5 6-6Z"/>
           <path d="m8 11-4 1-1 4 6-1m4 1-1 5 4-1 1-5M5 19l-2 2"/>
           <circle cx="16" cy="8" r="1.5"/>
         </svg>
       </span>
+
       <span>
         Launchpad
         <small>PYTHON + PLAYWRIGHT</small>
@@ -38,87 +64,167 @@
     </a>
 
     <div class="actions">
-      <button id="quick-open" type="button"
-              aria-haspopup="dialog" aria-controls="quick-dialog">
-        <svg class="icon" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="1.8"
-             aria-hidden="true" focusable="false">
+      <button
+        id="quick-open"
+        type="button"
+        aria-haspopup="dialog"
+        aria-controls="quick-dialog"
+      >
+        <svg
+          class="icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          aria-hidden="true"
+          focusable="false"
+        >
           <circle cx="10.5" cy="10.5" r="6.5"/>
           <path d="m16 16 5 5"/>
         </svg>
+
         <span>Quick search</span>
-        <kbd class="shortcut-hint" aria-hidden="true">⌘ / Ctrl K</kbd>
+
+        <kbd class="shortcut-hint" aria-hidden="true">
+          ⌘ / Ctrl K
+        </kbd>
       </button>
 
-      <button id="menu" type="button"
-              aria-controls="sidebar" aria-expanded="true">
+      <button
+        id="menu"
+        type="button"
+        aria-controls="sidebar"
+        aria-expanded="true"
+      >
         Menu
       </button>
 
-      <button id="theme" type="button">Dark mode</button>
+      <button id="theme" type="button">
+        Dark mode
+      </button>
     </div>
   </header>
 
-  <div class="reading-track" id="reading-track" hidden aria-hidden="true">
+  <!--
+    Visual reading-position indicator.
+    This does not represent quiz or lesson completion.
+  -->
+  <div
+    class="reading-track"
+    id="reading-track"
+    hidden
+    aria-hidden="true"
+  >
     <span id="reading-fill"></span>
   </div>
 
+  <!-- Application layout -->
   <div class="layout" id="layout">
+
+    <!-- Sidebar content is populated by app.js -->
     <aside id="sidebar">
       <p class="eyebrow">YOUR NEXT CHAPTER</p>
 
-      <nav id="navigation" aria-label="Main navigation"></nav>
+      <nav
+        id="navigation"
+        aria-label="Main navigation"
+      ></nav>
 
       <hr>
 
       <label for="search">Find a lesson</label>
-      <input id="search" type="search" placeholder="Try Python or folders">
 
-      <nav id="lessons" aria-label="Foundation lessons"></nav>
+      <input
+        id="search"
+        type="search"
+        placeholder="Try locators, reporting, or Python"
+        autocomplete="off"
+      >
+
+      <nav
+        id="lessons"
+        aria-label="Available course lessons"
+      ></nav>
 
       <section class="side-note">
-        <strong>Start curious. Build confidence.</strong>
+        <strong>Learn it. Try it. Explain it.</strong>
+
         <p>
-          You do not need a technical background.
-          Your next small step is enough.
+          Build your skills through guided lessons, independent practice,
+          and multiple-choice knowledge checks.
         </p>
       </section>
 
       <p class="muted small">
-        Progress stays in this browser. Export a backup before clearing browser data.
+        Your schedule, notes, and quiz attempts stay in this browser.
+        Export a backup before clearing browser data.
       </p>
     </aside>
 
+    <!-- Pages and lessons are rendered here by app.js -->
     <main id="main" tabindex="-1">
       <noscript>
-        <h1>Enable JavaScript</h1>
-        <p>This learning application needs JavaScript for navigation and saved progress.</p>
+        <section class="card">
+          <h1>Enable JavaScript</h1>
+
+          <p>
+            Launchpad needs JavaScript to display lessons, generate your
+            weekly planner, and save learning progress.
+          </p>
+
+          <p>
+            Enable JavaScript in your browser, then reload this page.
+          </p>
+        </section>
       </noscript>
     </main>
   </div>
 
   <footer>
-    Foundation package · Python-first · No live AI · No server-side test execution
+    Python-first learning · MCQ assessments · Local test execution
+    · No live AI provider configured
   </footer>
 
-  <button id="back-top" class="back-top" type="button"
-          aria-label="Back to top" hidden>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round"
-         stroke-linejoin="round" aria-hidden="true">
+  <!-- Back-to-top control -->
+  <button
+    id="back-top"
+    class="back-top"
+    type="button"
+    aria-label="Back to top"
+    hidden
+  >
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
       <path d="M12 20V4m-6 6 6-6 6 6"/>
     </svg>
   </button>
 
-  <dialog id="quick-dialog" class="quick-dialog"
-          aria-labelledby="quick-title"
-          aria-describedby="quick-description">
+  <!-- Quick-search dialog -->
+  <dialog
+    id="quick-dialog"
+    class="quick-dialog"
+    aria-labelledby="quick-title"
+    aria-describedby="quick-description"
+  >
     <div class="quick-header">
       <div>
         <p class="eyebrow">FIND YOUR NEXT STEP</p>
         <h2 id="quick-title">Where would you like to go?</h2>
       </div>
-      <button id="quick-close" type="button" aria-label="Close quick search">
+
+      <button
+        id="quick-close"
+        type="button"
+        aria-label="Close quick search"
+      >
         Close
       </button>
     </div>
@@ -126,18 +232,37 @@
     <p id="quick-description" class="small muted">
       Search lesson names, learning outcomes, or pages.
       Use Tab to reach a result and Enter to open it.
+      Press Escape to close.
     </p>
 
     <label for="quick-input">Search the academy</label>
-    <input id="quick-input" type="search"
-           placeholder="Try virtual environment, planner, or AI"
-           autocomplete="off" autofocus>
 
-    <p id="quick-count" class="small muted" role="status"></p>
+    <input
+      id="quick-input"
+      type="search"
+      placeholder="Try fixtures, HTML reports, or planner"
+      autocomplete="off"
+      autofocus
+    >
 
-    <nav id="quick-results" aria-label="Quick search results"></nav>
+    <p
+      id="quick-count"
+      class="small muted"
+      role="status"
+      aria-live="polite"
+    ></p>
+
+    <nav
+      id="quick-results"
+      aria-label="Quick search results"
+    ></nav>
   </dialog>
 
-  <div id="notice" role="status" aria-live="polite"></div>
+  <!-- Application notifications -->
+  <div
+    id="notice"
+    role="status"
+    aria-live="polite"
+  ></div>
 </body>
 </html>

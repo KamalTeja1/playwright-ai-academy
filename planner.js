@@ -2,26 +2,24 @@
   "use strict";
 
   const stages = [
-    { id: "learn", title: "Read and understand" },
-    { id: "guided", title: "Follow the walkthrough" },
-    { id: "practice", title: "Independent exercise" },
-    { id: "check", title: "Quiz and evidence checkpoint" }
+    { id: "learn", title: "Learn the concepts" },
+    { id: "guided", title: "Run the walkthrough" },
+    { id: "practice", title: "Independent practice" },
+    { id: "quiz", title: "MCQ assessment" },
+    { id: "review", title: "Review and revisit" }
   ];
 
   function date(value) {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      throw new Error("Use a date in YYYY-MM-DD format.");
+      throw new Error("Expected a YYYY-MM-DD date.");
     }
     const result = new Date(value + "T12:00:00Z");
     if (!Number.isFinite(result.getTime()) ||
-        result.toISOString().slice(0, 10) !== value) {
-      throw new Error("Invalid calendar date.");
+        result.toISOString().slice(0, 10) !== value ||
+        value < "2000-01-01" || value > "2100-12-31") {
+      throw new Error("Invalid or unsupported date.");
     }
     return result;
-  }
-
-  function iso(value) {
-    return value.toISOString().slice(0, 10);
   }
 
   function today() {
@@ -29,148 +27,214 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  function add(value, count) {
+  function add(value, days) {
     const d = date(value);
-    d.setUTCDate(d.getUTCDate() + count);
-    return iso(d);
+    d.setUTCDate(d.getUTCDate() + days);
+    const result = d.toISOString().slice(0, 10);
+    date(result);
+    return result;
   }
 
   function monday(value) {
-    const d = date(value);
-    return add(value, -((d.getUTCDay() + 6) % 7));
+    return add(value, -((date(value).getUTCDay() + 6) % 7));
   }
 
   function pretty(value) {
     return new Intl.DateTimeFormat(undefined, {
-      weekday: "short", month: "short", day: "numeric", timeZone: "UTC"
+      weekday: "short", month: "short", day: "numeric", year: "numeric",
+      timeZone: "UTC"
     }).format(date(value));
   }
 
-  function tasks(lessons) {
-    return lessons.flatMap(lesson => stages.map(stage => ({
-      id: `${lesson.id}:${stage.id}`,
-      lesson: lesson.id,
-      stage: stage.id,
-      title: `${lesson.title} — ${stage.title}`,
-      minutes: 15
-    })));
-  }
-
   function profile(raw) {
-    if (!raw || typeof raw !== "object") throw new Error("Missing learning profile.");
-    const start = iso(date(raw.start));
-
-    if (start < "2000-01-01" || start > "2100-12-31") {
-      throw new Error("Choose a start date between 2000 and 2100.");
+    if (!raw || !["windows", "mac", "linux"].includes(raw.os)) {
+      throw new Error("Select your operating system.");
     }
-
-    if (!["windows", "mac", "linux"].includes(raw.os)) throw new Error("Choose an operating system.");
-    if (!["new", "some", "experienced"].includes(raw.experience)) throw new Error("Choose an experience level.");
-    if (!["personal", "team", "portfolio"].includes(raw.goal)) throw new Error("Choose a goal.");
-    if (![30, 60, 90].includes(raw.minutes)) throw new Error("Choose a 30, 60, or 90 minute session.");
+    date(raw.start);
+    if (![30, 60, 90].includes(raw.minutes)) throw new Error("Choose 30, 60, or 90 minutes.");
     if (!Array.isArray(raw.days) || !raw.days.length ||
-        raw.days.some(day => !Number.isInteger(day) || day < 0 || day > 6)) {
-      throw new Error("Select at least one study day.");
+        raw.days.some(n => !Number.isInteger(n) || n < 0 || n > 6)) {
+      throw new Error("Choose at least one valid study day.");
     }
-
     return {
-      start,
       os: raw.os,
-      experience: raw.experience,
-      goal: raw.goal,
+      start: raw.start,
       minutes: raw.minutes,
-      days: [...new Set(raw.days)].sort()
+      days: [...new Set(raw.days)].sort(),
+      experience: ["new", "some", "experienced"].includes(raw.experience) ? raw.experience : "new",
+      goal: ["personal", "team", "portfolio"].includes(raw.goal) ? raw.goal : "personal"
     };
   }
 
-  function empty() {
-    return {
-      schema: 1,
-      profile: null,
-      theme: "light",
-      plan: {},
-      done: {},
-      work: {},
-      last: "computer-map"
-    };
+  function tasks(lessons) {
+    return lessons.flatMap(lesson =>
+      stages.flatMap((stage, index) => {
+        const minutes = lesson.duration[index];
+        if (!Number.isInteger(minutes) || minutes <= 0 || minutes % 15) {
+          throw new Error(`Invalid estimate for ${lesson.id}.`);
+        }
+        return Array.from({ length: minutes / 15 }, (_, part) => ({
+          id: `${lesson.id}:${stage.id}:${part + 1}`,
+          lesson: lesson.id,
+          stage: stage.id,
+          part: part + 1,
+          minutes: 15,
+          title: `${lesson.title} — ${stage.title} (${part + 1}/${minutes / 15})`
+        }));
+      })
+    );
   }
 
-  function schedule(allTasks, settings, completed, from) {
+  function schedule(all, settings, done, from) {
     const p = profile(settings);
-    let cursor = iso(date(from));
+    date(from);
+    let cursor = from;
     const plan = {};
     const used = {};
-    const capacity = p.minutes / 15;
 
-    for (const task of allTasks) {
-      if (completed[task.id]) {
-        const completedDate = iso(date(completed[task.id]));
-        plan[task.id] = completedDate;
-        used[completedDate] = (used[completedDate] || 0) + 1;
+    for (const task of all) {
+      if (done[task.id]) {
+        date(done[task.id]);
+        plan[task.id] = done[task.id];
+        used[done[task.id]] = (used[done[task.id]] || 0) + task.minutes;
       }
     }
 
-    for (const task of allTasks) {
-      if (completed[task.id]) continue;
-      let guard = 0;
-
+    for (const task of all) {
+      if (done[task.id]) continue;
       while (!p.days.includes(date(cursor).getUTCDay()) ||
-             (used[cursor] || 0) >= capacity) {
+             (used[cursor] || 0) + task.minutes > p.minutes) {
         cursor = add(cursor, 1);
-        if (++guard > 10000) throw new Error("Schedule exceeds the supported range.");
       }
-
       plan[task.id] = cursor;
-      used[cursor] = (used[cursor] || 0) + 1;
+      used[cursor] = (used[cursor] || 0) + task.minutes;
     }
     return plan;
   }
 
-  // Only recognized fields are imported; HTML is never trusted.
-  function validateBackup(raw, lessons) {
-    if (!raw || raw.schema !== 1) throw new Error("This is not a supported Launchpad backup.");
+  function empty() {
+    return {
+      schema: 2,
+      catalog: 2,
+      profile: null,
+      theme: "light",
+      last: "computer-map",
+      done: {},
+      plan: {},
+      work: {}
+    };
+  }
+
+  function text(value) {
+    if (value === undefined || value === null) return "";
+    if (typeof value !== "string" || value.length > 30000) {
+      throw new Error("Invalid or oversized saved text.");
+    }
+    return value;
+  }
+
+  function score(lesson, answers) {
+    return Math.round(100 * lesson.quiz.filter((q, i) => answers[i] === q.answer).length / lesson.quiz.length);
+  }
+
+  function validate(raw, lessons) {
+    if (!raw || raw.schema !== 2 || raw.catalog !== 2) {
+      throw new Error("Unsupported course backup. Use a foundation or course-v2 backup.");
+    }
     const clean = empty();
     clean.profile = raw.profile === null ? null : profile(raw.profile);
     clean.theme = raw.theme === "dark" ? "dark" : "light";
+    if (lessons.some(l => l.id === raw.last)) clean.last = raw.last;
 
     const all = tasks(lessons);
     for (const task of all) {
       for (const key of ["done", "plan"]) {
         const value = raw[key]?.[task.id];
         if (value !== undefined) {
-          const valid = iso(date(value));
-          if (valid < "2000-01-01" || valid > "2100-12-31") throw new Error("Backup date is outside the supported range.");
-          clean[key][task.id] = valid;
+          date(value);
+          clean[key][task.id] = value;
         }
       }
-      if (clean.done[task.id]) clean.plan[task.id] = clean.done[task.id];
-      if (clean.profile && !clean.plan[task.id]) throw new Error("Backup has an incomplete schedule.");
+      if (clean.profile && !clean.plan[task.id]) throw new Error("Backup schedule is incomplete.");
     }
 
     for (const lesson of lessons) {
-      const source = raw.work?.[lesson.id];
-      if (!source) continue;
-      const entry = { notes: "", draft: "", evidence: "", checks: [], answer: null };
+      const saved = raw.work?.[lesson.id] || {};
+      const attempts = [];
+      if (saved.attempts !== undefined && !Array.isArray(saved.attempts)) {
+        throw new Error("Invalid quiz history.");
+      }
+      if ((saved.attempts?.length || 0) > 1000) throw new Error("Quiz history is too large.");
 
-      for (const key of ["notes", "draft", "evidence"]) {
-        if (source[key] !== undefined) {
-          if (typeof source[key] !== "string" || source[key].length > 20000) {
-            throw new Error("Backup contains invalid or oversized lesson text.");
-          }
-          entry[key] = source[key];
+      for (const attempt of saved.attempts || []) {
+        date(attempt.date);
+        if (!Array.isArray(attempt.answers) ||
+            attempt.answers.length !== lesson.quiz.length ||
+            attempt.answers.some((n, i) => !Number.isInteger(n) || n < 0 || n >= lesson.quiz[i].options.length)) {
+          throw new Error("Invalid saved quiz answers.");
+        }
+        attempts.push({ date: attempt.date, answers: [...attempt.answers] });
+      }
+
+      clean.work[lesson.id] = {
+        notes: text(saved.notes),
+        draft: text(saved.draft),
+        legacyEvidence: text(saved.legacyEvidence),
+        legacyAnswer: Number.isInteger(saved.legacyAnswer) ? saved.legacyAnswer : null,
+        attempts
+      };
+
+      const passed = attempts.some(a => score(lesson, a.answers) >= 80);
+      if (!passed) {
+        for (const task of all.filter(t => t.lesson === lesson.id && t.stage === "quiz")) {
+          if (clean.done[task.id]) throw new Error("Quiz completion has no passing attempt.");
         }
       }
-
-      entry.checks = lesson.checks.map((_, index) => source.checks?.[index] === true);
-      if (Number.isInteger(source.answer) && source.answer >= 0 &&
-          source.answer < lesson.quiz.options.length) {
-        entry.answer = source.answer;
-      }
-      clean.work[lesson.id] = entry;
     }
 
-    if (lessons.some(lesson => lesson.id === raw.last)) clean.last = raw.last;
+    if (!clean.profile && Object.keys(clean.done).length) {
+      throw new Error("Completion data requires a learning profile.");
+    }
     return clean;
+  }
+
+  function migrate(raw, lessons, anchor = today()) {
+    if (!raw || raw.schema !== 1) throw new Error("Not a foundation-v1 backup.");
+    const clean = empty();
+    clean.profile = raw.profile === null ? null : profile(raw.profile);
+    clean.theme = raw.theme === "dark" ? "dark" : "light";
+    if (lessons.some(l => l.id === raw.last)) clean.last = raw.last;
+
+    const all = tasks(lessons);
+    for (const lesson of lessons) {
+      const saved = raw.work?.[lesson.id] || {};
+      clean.work[lesson.id] = {
+        notes: text(saved.notes),
+        draft: text(saved.draft),
+        legacyEvidence: text(saved.evidence),
+        legacyAnswer: Number.isInteger(saved.answer) ? saved.answer : null,
+        attempts: []
+      };
+
+      if (!clean.profile) continue;
+      for (const stage of ["learn", "guided", "practice"]) {
+        const completed = raw.done?.[`${lesson.id}:${stage}`];
+        if (!completed) continue;
+        date(completed);
+        all.filter(t => t.lesson === lesson.id && t.stage === stage)
+          .forEach(t => { clean.done[t.id] = completed; });
+      }
+    }
+
+    if (clean.profile) {
+      const from = clean.profile.start > anchor ? clean.profile.start : anchor;
+      clean.plan = schedule(all, clean.profile, clean.done, from);
+    }
+    return clean;
+  }
+
+  function restore(raw, lessons) {
+    return raw?.schema === 1 ? migrate(raw, lessons) : validate(raw, lessons);
   }
 
   function icsEscape(value) {
@@ -180,36 +244,31 @@
 
   function fold(line) {
     const encoder = new TextEncoder();
-    let result = "";
-    let part = "";
+    let output = "", current = "";
     for (const character of line) {
-      if (encoder.encode(part + character).length > 70) {
-        result += part + "\r\n";
-        part = " ";
+      if (encoder.encode(current + character).length > 70) {
+        output += current + "\r\n";
+        current = " ";
       }
-      part += character;
+      current += character;
     }
-    return result + part;
+    return output + current;
   }
 
-  function calendar(allTasks, plan, done) {
+  function calendar(all, plan, done) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-    const lines = [
-      "BEGIN:VCALENDAR", "VERSION:2.0",
-      "PRODID:-//Launchpad//Foundation Planner//EN", "CALSCALE:GREGORIAN"
-    ];
-
-    for (const task of allTasks) {
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Launchpad//Course V2//EN"];
+    for (const task of all) {
       if (!plan[task.id] || done[task.id]) continue;
       const day = plan[task.id];
       lines.push(
         "BEGIN:VEVENT",
-        `UID:launchpad-${task.id.replace(/:/g, "-")}@local.invalid`,
+        `UID:${task.id.replace(/:/g, "-")}@launchpad.invalid`,
         `DTSTAMP:${stamp}`,
         `DTSTART;VALUE=DATE:${day.replace(/-/g, "")}`,
         `DTEND;VALUE=DATE:${add(day, 1).replace(/-/g, "")}`,
         `SUMMARY:${icsEscape(task.title)}`,
-        `DESCRIPTION:${icsEscape("15-minute activity. Open Launchpad to study. Completion is recorded in the website, not this calendar.")}`,
+        "DESCRIPTION:15-minute study block. Completion is recorded in Launchpad.",
         "END:VEVENT"
       );
     }
@@ -218,7 +277,7 @@
   }
 
   window.Planner = {
-    stages, date, today, add, monday, pretty, tasks,
-    profile, empty, schedule, validateBackup, calendar
+    stages, date, today, add, monday, pretty, profile, tasks,
+    schedule, empty, score, validate, migrate, restore, calendar
   };
 })();
