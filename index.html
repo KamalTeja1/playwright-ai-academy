@@ -6,39 +6,84 @@
   <meta name="color-scheme" content="light dark">
   <meta name="description"
         content="A beginner-friendly Python and Playwright learning academy.">
+
   <title>Launchpad — Python & Playwright Academy</title>
+
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./experience.css">
+
   <script src="./content.js" defer></script>
   <script src="./planner.js" defer></script>
   <script src="./app.js" defer></script>
+  <script src="./experience.js" defer></script>
 </head>
+
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
   <header class="topbar">
     <a href="#dashboard" class="brand">
-      <span class="brand-icon" aria-hidden="true">↗</span>
-      <span>Launchpad <small>PYTHON + PLAYWRIGHT</small></span>
+      <span class="brand-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 5c3-2 5-2 7-2 0 2 0 4-2 7l-6 6-5-5 6-6Z"/>
+          <path d="m8 11-4 1-1 4 6-1m4 1-1 5 4-1 1-5M5 19l-2 2"/>
+          <circle cx="16" cy="8" r="1.5"/>
+        </svg>
+      </span>
+      <span>
+        Launchpad
+        <small>PYTHON + PLAYWRIGHT</small>
+      </span>
     </a>
+
     <div class="actions">
-      <button id="menu" aria-controls="sidebar" aria-expanded="true">Menu</button>
-      <button id="theme">Dark mode</button>
+      <button id="quick-open" type="button"
+              aria-haspopup="dialog" aria-controls="quick-dialog">
+        <svg class="icon" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.8"
+             aria-hidden="true" focusable="false">
+          <circle cx="10.5" cy="10.5" r="6.5"/>
+          <path d="m16 16 5 5"/>
+        </svg>
+        <span>Quick search</span>
+        <kbd class="shortcut-hint" aria-hidden="true">⌘ / Ctrl K</kbd>
+      </button>
+
+      <button id="menu" type="button"
+              aria-controls="sidebar" aria-expanded="true">
+        Menu
+      </button>
+
+      <button id="theme" type="button">Dark mode</button>
     </div>
   </header>
+
+  <div class="reading-track" id="reading-track" hidden aria-hidden="true">
+    <span id="reading-fill"></span>
+  </div>
 
   <div class="layout" id="layout">
     <aside id="sidebar">
       <p class="eyebrow">YOUR NEXT CHAPTER</p>
+
       <nav id="navigation" aria-label="Main navigation"></nav>
+
       <hr>
+
       <label for="search">Find a lesson</label>
       <input id="search" type="search" placeholder="Try Python or folders">
+
       <nav id="lessons" aria-label="Foundation lessons"></nav>
 
       <section class="side-note">
-        <strong>You belong here.</strong>
-        <p>No technical background required. One useful step at a time.</p>
+        <strong>Start curious. Build confidence.</strong>
+        <p>
+          You do not need a technical background.
+          Your next small step is enough.
+        </p>
       </section>
+
       <p class="muted small">
         Progress stays in this browser. Export a backup before clearing browser data.
       </p>
@@ -55,6 +100,43 @@
   <footer>
     Foundation package · Python-first · No live AI · No server-side test execution
   </footer>
+
+  <button id="back-top" class="back-top" type="button"
+          aria-label="Back to top" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round"
+         stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 20V4m-6 6 6-6 6 6"/>
+    </svg>
+  </button>
+
+  <dialog id="quick-dialog" class="quick-dialog"
+          aria-labelledby="quick-title"
+          aria-describedby="quick-description">
+    <div class="quick-header">
+      <div>
+        <p class="eyebrow">FIND YOUR NEXT STEP</p>
+        <h2 id="quick-title">Where would you like to go?</h2>
+      </div>
+      <button id="quick-close" type="button" aria-label="Close quick search">
+        Close
+      </button>
+    </div>
+
+    <p id="quick-description" class="small muted">
+      Search lesson names, learning outcomes, or pages.
+      Use Tab to reach a result and Enter to open it.
+    </p>
+
+    <label for="quick-input">Search the academy</label>
+    <input id="quick-input" type="search"
+           placeholder="Try virtual environment, planner, or AI"
+           autocomplete="off" autofocus>
+
+    <p id="quick-count" class="small muted" role="status"></p>
+
+    <nav id="quick-results" aria-label="Quick search results"></nav>
+  </dialog>
 
   <div id="notice" role="status" aria-live="polite"></div>
 </body>
