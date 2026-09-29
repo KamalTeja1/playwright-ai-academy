@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Launchpad — Foundation Checks</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+  <main>
+    <p><a href="./index.html#/">← Return to the studio</a></p>
+
+    <p class="eyebrow">RELEASE A VERIFICATION</p>
+    <h1>Check the foundation</h1>
+
+    <section class="card">
+      <p>
+        These checks validate content structure and preferences persistence.
+        They do not run Python, Playwright, or a full browser UI test suite.
+      </p>
+
+      <button id="run" class="primary" type="button">Run checks</button>
+
+      <p id="summary" role="status">Not run yet.</p>
+
+      <ol id="results"></ol>
+    </section>
+  </main>
+
+  <script type="module">
+    const button = document.getElementById("run");
+    const summary = document.getElementById("summary");
+    const list = document.getElementById("results");
+
+    button.onclick = async () => {
+      button.disabled = true;
+      list.replaceChildren();
+      summary.textContent = "Running checks…";
+
+      try {
+        const [
+          { catalog },
+          { validateCatalog },
+          {
+            STORAGE_KEY,
+            defaultPreferences,
+            validatePreferences,
+            createPreferencesStore
+          }
+        ] = await Promise.all([
+          import("./catalog.js"),
+          import("./schema.js"),
+          import("./store.js")
+        ]);
+
+        const outcomes = [];
+
+        const assert = (condition, message) => {
+          if (!condition) throw new Error(message);
+        };
+
+        const rejects = callback => {
+          let rejected = false;
+          try {
+            callback();
+          } catch {
+            rejected = true;
+          }
+          assert(rejected, "Expected the operation to be rejected.");
+        };
+
+        const test = (name, callback) => {
+          try {
+            callback();
+            outcomes.push({ name, pass: true });
+          } catch (error) {
+            outcomes.push({
+              name,
+              pass: false,
+              message: String(error.message || error)
+            });
+          }
+        };
+
+        function memoryStorage() {
+          const values = new Map();
+
+          return {
+            getItem(key) {
+              return values.has(key) ? values.get(key) : null;
+            },
+            setItem(key, value) {
+              values.set(key, String(value));
+            },
+            removeItem(key) {
+              values.delete(key);
+            }
+          };
+        }
+
+        const cloneCatalog = () => JSON.parse(JSON.stringify(catalog));
+
+        test("The Release A catalog passes validation", () => {
+          assert(validateCatalog(catalog).length === 0, "Catalog contains errors.");
+        });
+
+        test("All nine phases have unique identities", () => {
+          assert(catalog.phases.length === 9, "Expected nine phases.");
+          assert(new Set(catalog.phases.map(p => p.id)).size === 9, "Duplicate phase IDs.");
+          assert(catalog.topics.length === 0, "Release A must not claim installed lessons.");
+        });
+
+        test("Duplicate phase IDs are rejected", () => {
+          const copy = cloneCatalog();
+          copy.phases.push({ ...copy.phases[0] });
+          assert(validateCatalog(copy).some(e => e.includes("duplicate id")), "Duplicate accepted.");
+        });
+
+        test("A module cannot reference a missing phase", () => {
+          const copy = cloneCatalog();
+          copy.modules.push({
+            id: "test-module",
+            title: "Development fixture",
+            order: 0,
+            phaseId: "missing"
+          });
+          assert(validateCatalog(copy).some(e => e.includes("unknown phaseId")), "Broken reference accepted.");
+        });
+
+        test("An empty published topic is rejected", () => {
+          const copy = cloneCatalog();
+
+          copy.modules.push({
+            id: "test-module",
+            title: "Development fixture",
+            order: 0,
+            phaseId: "phase-0"
+          });
+
+          copy.lessons.push({
+            id: "test-lesson",
+            title: "Development fixture",
+            order: 0,
+            moduleId: "test-module"
+          });
+
+          copy.topics.push({
+            id: "test-topic",
+            title: "Development fixture",
+            order: 0,
+            lessonId: "test-lesson",
+            status: "published"
+          });
+
+          assert(
+            validateCatalog(copy).some(e => e.includes("300–800")),
+            "Empty published notes were accepted."
+          );
+        });
+
+        test("Default preferences are valid", () => {
+          const clean = validatePreferences(defaultPreferences());
+          assert(clean.theme === "dark", "Dark-first default missing.");
+        });
+
+        test("Invalid preference values are rejected", () => {
+          rejects(() => validatePreferences({
+            ...defaultPreferences(),
+            weeklyGoalMinutes: -20
+          }));
+
+          rejects(() => validatePreferences({
+            ...defaultPreferences(),
+            theme: "unknown"
+          }));
+
+          rejects(() => validatePreferences({
+            ...defaultPreferences(),
+            name: " "
+          }));
+        });
+
+        test("Saved preferences survive store recreation", () => {
+          const storage = memoryStorage();
+          const first = createPreferencesStore(storage);
+
+          first.save({
+            ...first.get(),
+            name: "Practice Learner",
+            weeklyGoalMinutes: 240
+          });
+
+          const second = createPreferencesStore(storage);
+          assert(second.get().name === "Practice Learner", "Name not restored.");
+          assert(second.get().weeklyGoalMinutes === 240, "Goal not restored.");
+        });
+
+        test("Corrupt stored data is preserved and automatic saving is blocked", () => {
+          const storage = memoryStorage();
+          storage.setItem(STORAGE_KEY, "{broken");
+
+          const store = createPreferencesStore(storage);
+
+          assert(store.status().blocked, "Corrupt data did not block saving.");
+          rejects(() => store.save(defaultPreferences()));
+          assert(storage.getItem(STORAGE_KEY) === "{broken", "Original data was overwritten.");
+        });
+
+        test("A validated explicit restore recovers a blocked store", () => {
+          const storage = memoryStorage();
+          storage.setItem(STORAGE_KEY, "{broken");
+
+          const store = createPreferencesStore(storage);
+          store.restore({
+            ...defaultPreferences(),
+            name: "Recovered"
+          });
+
+          assert(!store.status().blocked, "Restore did not unblock saving.");
+          assert(store.get().name === "Recovered", "Restore did not load preferences.");
+        });
+
+        test("Reset removes only this application's key", () => {
+          const storage = memoryStorage();
+          storage.setItem("existing-academy-data", "keep this");
+
+          const store = createPreferencesStore(storage);
+          store.save(defaultPreferences());
+          store.reset();
+
+          assert(storage.getItem(STORAGE_KEY) === null, "Foundation key remained.");
+          assert(storage.getItem("existing-academy-data") === "keep this", "Other data was removed.");
+        });
+
+        test("A failed write does not pretend settings were saved", () => {
+          const storage = memoryStorage();
+          storage.setItem = () => {
+            throw new Error("Simulated quota failure");
+          };
+
+          const store = createPreferencesStore(storage);
+          const before = store.get();
+
+          rejects(() => store.save({
+            ...before,
+            name: "Unsaved value"
+          }));
+
+          assert(store.get().name === before.name, "Memory state falsely changed after a failed save.");
+        });
+
+        for (const outcome of outcomes) {
+          const item = document.createElement("li");
+          item.className = outcome.pass ? "status-pass" : "status-fail";
+          item.textContent =
+            (outcome.pass ? "PASS — " : "FAIL — ") +
+            outcome.name +
+            (outcome.message ? ": " + outcome.message : "");
+
+          list.append(item);
+        }
+
+        summary.textContent =
+          `${outcomes.filter(item => item.pass).length}/${outcomes.length} checks passed in this browser.`;
+      } catch (error) {
+        summary.textContent =
+          "Checks could not run: " + String(error.message || error);
+      } finally {
+        button.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
