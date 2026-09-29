@@ -1,155 +1,154 @@
-# Launchpad — Release A
+# Launchpad — Release B
 
-A separate foundation build for the replacement learning academy.
+A separate review build for the replacement learning academy.
 
-## Current status
+## Implemented
 
-Implemented:
+- Release A preferences remain compatible
+- Phase → Module → Lesson → Topic navigation
+- Direct topic routes
+- Notes, Hands-On, Challenge, and Checkpoint tabs
+- Keyboard-operated tab navigation
+- Topic table of contents
+- Lightweight code highlighting and copy buttons
+- Search page and command palette
+- Bookmarks and resume-topic record
+- Personal notes and exercise drafts
+- Separate preferences and learning-data backups
+- Validated restore and scoped resets
+- Release A and Release B verification pages
 
-- Application startup and startup-error handling
-- Dark/light appearance
-- Collapsible navigation
-- Nine-phase course map
-- Settings with a versioned storage adapter
-- Preferences backup and validated restore
-- Reset limited to this application's storage key
-- Content-schema validation
-- Browser-run verification checks
+## Content boundary
 
-Not implemented yet:
+There is one labelled interface-review topic.
 
-- Detailed course topics
-- Lesson workspace and checkpoints
-- Search and command palette
-- Dashboard learning statistics
+It is not the full Phase 0 or Phase 1 curriculum.
+Its IDs are review-specific and will not silently map to future curriculum topics.
+
+The code examples require already prepared Python or TypeScript workspaces.
+The website does not install tools or execute examples.
+
+## Not implemented yet
+
+- Full curriculum content
 - Weekly planner and activity tracker
+- Study-time measurement
+- Topic completion records
+- Persistent quiz scores
 - Achievements
-- Python or TypeScript execution
-- Live AI integration
-
-Empty course pages are intentional in this foundation release.
-They are not presented as completed learning material.
+- Live AI
+- Server-side test execution
+- Monaco Editor
+- Full browser UI automation
+- Formal accessibility or performance certification
 
 ## Files
 
-Keep these files together:
+Keep all files inside next-academy.
 
-- index.html
+Release A dependencies kept unchanged:
 - styles.css
-- schema.js
 - catalog.js
+- schema.js
 - store.js
-- app.js
 - checks.html
+
+Release B files:
+- index.html
+- app.js
+- course.js
+- learning-store.js
+- learning-ui.js
+- learning.css
+- learning-checks.html
 - README.md
 
-No other files are imported by this release.
-
-## Existing website
-
-Do not change the existing repository-root website files.
-
-This build belongs inside next-academy/ and has a separate URL.
-
-It does not migrate or delete the previous academy's progress.
+The original repository-root website remains unchanged.
 
 ## Storage
 
-Key:
-
+Preferences:
     launchpad-next-foundation-v1
 
-Release A stores:
+Learning data:
+    launchpad-next-learning-v1
 
-- Display name
-- Theme
-- Weekly goal in minutes
+Learning data contains:
+- Bookmarked topic IDs
+- Last visited topic ID
+- Personal notes
+- Exercise drafts
 
-This is a preferences schema, not a learning-progress schema.
+Checkpoint feedback is intentionally not persisted as course completion.
 
-Unreadable data blocks automatic writing.
-Explicit restore or reset is required to replace it.
+Unreadable storage blocks automatic writes.
+Export untouched data before explicitly restoring or resetting.
 
-Do not use localStorage.clear() in this application.
+Never call localStorage.clear().
 
-## Content structure
+## Backups
 
-The content catalog separates:
+Preferences and learning data are exported separately.
+Restore the matching file into the matching section.
 
-- Phase
-- Module
-- Lesson
-- Topic
+Learning imports reject unknown topic IDs rather than silently deleting notes.
+Future content-schema changes must include an explicit migration.
 
-Relationships:
+Storage-write failures are shown to the learner.
+Unsaved text remains in the current editor, but must be copied before leaving.
 
-- Module.phaseId → Phase.id
-- Lesson.moduleId → Module.id
-- Topic.lessonId → Lesson.id
+## Routes
 
-Every record requires:
-- id
-- title
-- order
+- #/
+- #/phases
+- #/phases/phase-0
+- #/modules/review-workspace
+- #/lessons/review-first-check
+- #/topics/review-actions-and-assertions
+- #/search
+- #/bookmarks
+- #/settings
+- #/release
 
-A published topic additionally requires:
+Unknown routes display a 404 view.
 
-- status: "published"
-- summary
-- whyItMatters
-- difficulty
-- content: [{ heading, body }]
-- handsOn: { steps, deliverable }
-- challenge: { task, solution }
-- checkpoint: [{ question, answer }]
-- proTips
-- commonMistakes
-- codeExamples: [{ language, filename, source }]
-- furtherReading
+## Verification
 
-Detailed-note bodies must total 300–800 whitespace-separated words.
-Checkpoint, pro-tip, and common-mistake counts are validated.
-Both Python and TypeScript examples are required.
+Run:
+- checks.html
+- learning-checks.html
 
-The validator checks structure, not technical correctness.
-Examples and references still require review and execution.
+Both use in-memory storage for their test cases.
 
-Use stable IDs. Do not rename IDs merely to change visible titles.
+Then manually verify:
+- Tab keyboard navigation
+- Search dialog and Escape behavior
+- Code copying
+- Notes and draft persistence
+- Bookmark persistence
+- Backup/restore
+- Mobile layout
+- Light/dark readability
 
-## Running checks
+These files were not executed in the chat environment.
+Do not report a passing result until the checks actually run.
 
-Open checks.html through the preview server.
-Press Run checks.
+## Content validation
 
-The checks use in-memory storage and do not modify your settings.
+schema.js validates content relationships and required published-topic fields.
 
-Passing these checks does not prove:
-- Browser UI accessibility
-- Lighthouse scores
-- Python example correctness
-- Production readiness
+course.js extends validation for multiple-choice questions.
 
-## Fonts and motion
+The detailed notes must contain 300–800 words.
+There must be Python and TypeScript examples.
+Further-reading references must be HTTPS URLs.
 
-The stylesheet requests Inter and JetBrains Mono.
-System fallbacks are used if those fonts are unavailable.
+Validation checks structure, not whether APIs and explanations are correct.
+Technical content still requires review and actual example execution.
 
-No font files or external font requests are included.
+## Next release
 
-Reduced-motion preferences disable animations and transitions.
+Release C adds the dashboard, weekly planner, tracker,
+learning progress, and achievement rules.
 
-## Release sequence
-
-A. Foundation — this release
-B. Learning workspace and navigation
-C. Dashboard, weekly planner, and tracker
-D. Phase 0 content batches
-E. Phase 1 content batches
-F. Phase 2–8 inventory and later content authoring
-G. Verification and refinement
-H. Public-site replacement
-
-## Verification disclosure
-
-This code was provided without executing it in the chat environment.
-Run the supplied checks and manual checklist before considering it verified.
+Detailed curriculum content follows in module-sized batches.

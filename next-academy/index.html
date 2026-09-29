@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <meta name="description"
-        content="Launchpad: a structured Python and TypeScript automation learning studio.">
+        content="A structured Python and TypeScript learning studio.">
 
   <title>Launchpad — Learning Studio</title>
 
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./learning.css">
   <script type="module" src="./app.js"></script>
 </head>
 
@@ -19,47 +20,41 @@
   <header class="topbar">
     <a class="brand" href="#/">
       <span class="brand-mark" aria-hidden="true">↗</span>
-      <span>
-        Launchpad
-        <small>PYTHON + TYPESCRIPT</small>
-      </span>
+      <span>Launchpad<small>PYTHON + TYPESCRIPT</small></span>
     </a>
 
     <div class="header-actions">
-      <span class="release-label">Release A · Foundation</span>
+      <span class="release-label">Release B · Learning workspace</span>
 
-      <button
-        id="menu-toggle"
-        type="button"
-        aria-controls="sidebar"
-        aria-expanded="true"
-      >
+      <button id="search-open" type="button"
+              aria-haspopup="dialog" aria-controls="search-dialog">
+        Search <kbd aria-hidden="true">⌘ / Ctrl K</kbd>
+      </button>
+
+      <button id="menu-toggle" type="button"
+              aria-controls="sidebar" aria-expanded="true">
         Menu
       </button>
 
-      <button id="theme-toggle" type="button">
-        Light mode
-      </button>
+      <button id="theme-toggle" type="button">Light mode</button>
     </div>
   </header>
 
   <div class="app-layout" id="app-layout">
     <aside id="sidebar">
       <p class="eyebrow">YOUR LEARNING STUDIO</p>
-
       <nav id="navigation" aria-label="Main navigation"></nav>
 
       <section class="sidebar-note">
-        <span aria-hidden="true">✦</span>
         <strong>Build understanding.</strong>
-        <p>
-          One clear concept. One useful exercise.
-          One verified result at a time.
-        </p>
+        <p>Read the explanation. Try the exercise. Check what you learned.</p>
       </section>
 
+      <div id="course-tree"></div>
+
       <p class="small muted">
-        This replacement build is separate from your existing academy.
+        Notes and bookmarks stay in this browser.
+        Export a backup from Settings.
       </p>
     </aside>
 
@@ -73,17 +68,36 @@
       <noscript>
         <section class="card">
           <h1>JavaScript is required</h1>
-          <p>
-            Enable JavaScript to use this application's navigation and settings.
-          </p>
+          <p>Enable JavaScript to use this application.</p>
         </section>
       </noscript>
     </main>
   </div>
 
   <footer>
-    Independent learning project · Foundation build · No live AI or test execution
+    Release B · One interface-review topic · No live AI or browser-test execution
   </footer>
+
+  <dialog id="search-dialog"
+          aria-labelledby="search-title"
+          aria-describedby="search-help">
+    <div class="dialog-heading">
+      <h2 id="search-title">Find your next topic</h2>
+      <button id="search-close" type="button">Close</button>
+    </div>
+
+    <p id="search-help" class="small muted">
+      Search titles, summaries, and tags.
+      Use Tab to reach a result, Enter to open it, and Escape to close.
+    </p>
+
+    <label for="quick-search">Search the studio</label>
+    <input id="quick-search" type="search"
+           autocomplete="off" placeholder="Try assertion" autofocus>
+
+    <p id="quick-count" class="small muted" role="status"></p>
+    <nav id="quick-results" aria-label="Search results"></nav>
+  </dialog>
 
   <div id="toast" role="status" aria-live="polite"></div>
 </body>

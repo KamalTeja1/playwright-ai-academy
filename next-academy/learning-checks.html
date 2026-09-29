@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Launchpad — Release B Checks</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./learning.css">
+</head>
+
+<body>
+  <main>
+    <p><a href="./index.html#/">← Return to studio</a></p>
+    <h1>Release B verification</h1>
+
+    <section class="card">
+      <p>
+        These checks use in-memory storage.
+        They do not modify your notes or run Python/TypeScript.
+      </p>
+      <button id="run" class="primary" type="button">Run checks</button>
+      <p id="summary" role="status">Not run yet.</p>
+      <ol id="results"></ol>
+    </section>
+  </main>
+
+  <script type="module">
+    const button = document.getElementById("run");
+    const summary = document.getElementById("summary");
+    const results = document.getElementById("results");
+
+    button.onclick = async () => {
+      button.disabled = true;
+      results.replaceChildren();
+      summary.textContent = "Running checks…";
+
+      try {
+        const [
+          { course, courseErrors },
+          { LEARNING_KEY, createLearningStore, validateLearning },
+          { searchTopics, highlight }
+        ] = await Promise.all([
+          import("./course.js"),
+          import("./learning-store.js"),
+          import("./learning-ui.js")
+        ]);
+
+        const outcomes = [];
+        const topicIds = course.topics.map(topic => topic.id);
+        const id = topicIds[0];
+
+        function assert(condition, message) {
+          if (!condition) throw new Error(message);
+        }
+
+        function rejects(callback) {
+          let rejected = false;
+          try { callback(); } catch { rejected = true; }
+          assert(rejected, "Expected rejection.");
+        }
+
+        function memoryStorage() {
+          const values = new Map();
+          return {
+            getItem(key) {
+              return values.has(key) ? values.get(key) : null;
+            },
+            setItem(key, value) {
+              values.set(key, String(value));
+            },
+            removeItem(key) {
+              values.delete(key);
+            }
+          };
+        }
+
+        function test(name, callback) {
+          try {
+            callback();
+            outcomes.push({ name, passed: true });
+          } catch (error) {
+            outcomes.push({
+              name,
+              passed: false,
+              message: String(error.message || error)
+            });
+          }
+        }
+
+        test("Review course passes schema and checkpoint validation", () => {
+          const errors = courseErrors();
+          assert(errors.length === 0, errors.join(" "));
+        });
+
+        test("The review hierarchy links phase, module, lesson, and topic", () => {
+          const topic = course.topics[0];
+          const lesson = course.lessons.find(l => l.id === topic.lessonId);
+          const module = course.modules.find(m => m.id === lesson?.moduleId);
+          const phase = course.phases.find(p => p.id === module?.phaseId);
+          assert(Boolean(phase), "Broken hierarchy.");
+          assert(topic.isReviewFixture === true, "Review content not labelled.");
+        });
+
+        test("Search is case-insensitive and supports several words", () => {
+          assert(searchTopics(course.topics, "PYTHON assertions").length === 1, "Expected match missing.");
+          assert(searchTopics(course.topics, "nonexistentword").length === 0, "Unexpected match.");
+        });
+
+        test("Notes and drafts survive store recreation", () => {
+          const storage = memoryStorage();
+          const first = createLearningStore(storage, topicIds);
+          first.saveRecord(id, { notes: "Remember the assertion.", draft: "print('draft')" });
+          const second = createLearningStore(storage, topicIds);
+          assert(second.record(id).notes === "Remember the assertion.", "Notes lost.");
+          assert(second.record(id).draft === "print('draft')", "Draft lost.");
+        });
+
+        test("Bookmarks toggle without duplicates", () => {
+          const store = createLearningStore(memoryStorage(), topicIds);
+          store.toggleBookmark(id);
+          assert(store.get().bookmarks.length === 1, "Bookmark not added.");
+          store.toggleBookmark(id);
+          assert(store.get().bookmarks.length === 0, "Bookmark not removed.");
+        });
+
+        test("Last visited topic survives reload", () => {
+          const storage = memoryStorage();
+          createLearningStore(storage, topicIds).visit(id);
+          assert(createLearningStore(storage, topicIds).get().lastTopic === id, "Resume record lost.");
+        });
+
+        test("Corrupt data is protected from automatic overwrite", () => {
+          const storage = memoryStorage();
+          storage.setItem(LEARNING_KEY, "{broken");
+          const store = createLearningStore(storage, topicIds);
+          assert(store.status().blocked, "Corruption not detected.");
+          rejects(() => store.toggleBookmark(id));
+          assert(storage.getItem(LEARNING_KEY) === "{broken", "Corrupt record overwritten.");
+        });
+
+        test("Unknown topic IDs are rejected during restore validation", () => {
+          rejects(() => validateLearning({
+            schemaVersion: 1,
+            bookmarks: ["unknown-topic"],
+            lastTopic: null,
+            records: {}
+          }, topicIds));
+        });
+
+        test("Failed writes do not claim a saved record", () => {
+          const storage = memoryStorage();
+          const store = createLearningStore(storage, topicIds);
+          storage.setItem = () => { throw new Error("Simulated full storage"); };
+          rejects(() => store.saveRecord(id, { notes: "Unsaved" }));
+          assert(store.record(id).notes === "", "Failed save changed persisted state.");
+        });
+
+        test("Reset removes only the learning key", () => {
+          const storage = memoryStorage();
+          storage.setItem("release-a-preferences", "keep");
+          const store = createLearningStore(storage, topicIds);
+          store.toggleBookmark(id);
+          store.reset();
+          assert(storage.getItem(LEARNING_KEY) === null, "Learning key remains.");
+          assert(storage.getItem("release-a-preferences") === "keep", "Unrelated data removed.");
+        });
+
+        test("Explicit validated restore recovers blocked storage", () => {
+          const storage = memoryStorage();
+          storage.setItem(LEARNING_KEY, "{broken");
+          const store = createLearningStore(storage, topicIds);
+          store.restore({
+            schemaVersion: 1,
+            bookmarks: [id],
+            lastTopic: id,
+            records: {}
+          });
+          assert(!store.status().blocked, "Store still blocked.");
+          assert(store.get().bookmarks.includes(id), "Restore failed.");
+        });
+
+        test("Highlighting escapes markup rather than creating elements", () => {
+          const host = document.createElement("div");
+          const text = "<img src=x onerror=alert(1)>";
+          host.innerHTML = highlight(text);
+          assert(host.querySelector("img") === null, "Markup became an element.");
+          assert(host.textContent === text, "Source text changed.");
+        });
+
+        for (const outcome of outcomes) {
+          const item = document.createElement("li");
+          item.className = outcome.passed ? "status-pass" : "status-fail";
+          item.textContent =
+            (outcome.passed ? "PASS — " : "FAIL — ") +
+            outcome.name +
+            (outcome.message ? ": " + outcome.message : "");
+          results.append(item);
+        }
+
+        summary.textContent =
+          `${outcomes.filter(item => item.passed).length}/${outcomes.length} checks passed in this browser.`;
+      } catch (error) {
+        summary.textContent =
+          "Checks could not run: " + String(error.message || error);
+      } finally {
+        button.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

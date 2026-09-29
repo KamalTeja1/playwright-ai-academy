@@ -1,0 +1,344 @@
+/* Release B additions. Load after styles.css. */
+
+[hidden] {
+  display: none !important;
+}
+
+kbd {
+  padding: 2px 5px;
+  margin-left: 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-family: var(--font-code);
+  font-size: 10px;
+}
+
+.breadcrumbs {
+  margin-bottom: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.breadcrumbs a {
+  display: inline;
+}
+
+.course-tree {
+  margin: 22px 0;
+}
+
+.course-tree details {
+  margin: 9px 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.course-tree details details {
+  margin-left: 6px;
+  background: var(--raised);
+}
+
+.course-tree summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.course-tree nav a {
+  min-height: 40px;
+  padding: 9px;
+  font-size: 11.5px;
+}
+
+.topic-actions {
+  margin-bottom: 24px;
+}
+
+.learning-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  align-items: start;
+  gap: 24px;
+}
+
+.learning-content {
+  min-width: 0;
+}
+
+.lesson-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+
+  padding: 7px;
+  margin-bottom: 22px;
+
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface);
+}
+
+.lesson-tabs button {
+  flex: 1;
+  padding: 11px 14px;
+}
+
+.lesson-tabs [aria-selected="true"] {
+  background: var(--primary-button);
+  border-color: #a48dff;
+  color: white;
+}
+
+[role="tabpanel"] {
+  min-width: 0;
+}
+
+[data-toc] {
+  scroll-margin-top: 115px;
+}
+
+.topic-toc {
+  position: sticky;
+  top: 115px;
+}
+
+.topic-toc button {
+  display: block;
+  width: 100%;
+  margin: 7px 0;
+  padding: 9px 11px;
+  text-align: left;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.code-block {
+  min-width: 0;
+  margin: 18px 0 24px;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px 12px 0 0;
+  background: var(--raised);
+
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.code-header button {
+  min-height: 36px;
+  padding: 7px 11px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+.code-block pre {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  line-height: 1.85;
+  tab-size: 4;
+}
+
+.token-string {
+  color: #a6e5b8;
+}
+
+.token-keyword {
+  color: #d1b6ff;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin: 8px 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--text);
+  resize: vertical;
+}
+
+textarea.editor {
+  min-height: 260px;
+  background: #080d18;
+  color: #edf4ff;
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: 1.8;
+  tab-size: 4;
+}
+
+fieldset {
+  min-width: 0;
+  padding: 18px;
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+legend {
+  padding: 0 7px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.answer-choice {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 45px;
+
+  padding: 11px;
+  margin: 9px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.answer-choice input {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+.answer-choice:has(input:checked) {
+  background: var(--raised);
+  border-color: var(--link);
+}
+
+.question-feedback:not(:empty) {
+  padding-top: 12px;
+  font-size: 13px;
+}
+
+.learning-content details {
+  padding: 16px;
+  margin: 15px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--raised);
+}
+
+.learning-content summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.learning-content details[open] summary {
+  margin-bottom: 14px;
+}
+
+.dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+dialog {
+  width: min(730px, calc(100vw - 28px));
+  max-height: 85vh;
+  padding: 26px;
+  overflow-y: auto;
+
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+dialog::backdrop {
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+#quick-results a {
+  display: block;
+  padding: 14px;
+  margin: 9px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+#quick-results strong,
+#quick-results small {
+  display: block;
+}
+
+#quick-results small {
+  margin-top: 6px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@media (max-width: 1100px) {
+  .learning-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .topic-toc {
+    position: static;
+    grid-row: 1;
+  }
+
+  #toc-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .topic-toc button {
+    width: auto;
+    margin: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  kbd {
+    display: none;
+  }
+
+  textarea {
+    font-size: 16px;
+  }
+
+  textarea.editor {
+    font-size: 14px;
+  }
+
+  .lesson-tabs button {
+    flex-basis: 40%;
+  }
+
+  dialog {
+    padding: 20px;
+  }
+
+  [data-toc] {
+    scroll-margin-top: 20px;
+  }
+}
