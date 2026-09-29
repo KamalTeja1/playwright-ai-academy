@@ -1,154 +1,161 @@
-# Launchpad — Release B
+# Release C — Dashboard, Planning, and Activity
 
-A separate review build for the replacement learning academy.
+## Content scope
 
-## Implemented
+The installed course still contains one interface-review topic.
+This release does not install the full curriculum.
 
-- Release A preferences remain compatible
-- Phase → Module → Lesson → Topic navigation
-- Direct topic routes
-- Notes, Hands-On, Challenge, and Checkpoint tabs
-- Keyboard-operated tab navigation
-- Topic table of contents
-- Lightweight code highlighting and copy buttons
-- Search page and command palette
-- Bookmarks and resume-topic record
-- Personal notes and exercise drafts
-- Separate preferences and learning-data backups
-- Validated restore and scoped resets
-- Release A and Release B verification pages
+Dashboard percentages describe installed published topics only.
+They must not be described as completion of the full academy.
 
-## Content boundary
+## New files
 
-There is one labelled interface-review topic.
+- activity.js
+- activity-ui.js
+- activity.css
+- activity-checks.html
+- RELEASE-C.md
 
-It is not the full Phase 0 or Phase 1 curriculum.
-Its IDs are review-specific and will not silently map to future curriculum topics.
-
-The code examples require already prepared Python or TypeScript workspaces.
-The website does not install tools or execute examples.
-
-## Not implemented yet
-
-- Full curriculum content
-- Weekly planner and activity tracker
-- Study-time measurement
-- Topic completion records
-- Persistent quiz scores
-- Achievements
-- Live AI
-- Server-side test execution
-- Monaco Editor
-- Full browser UI automation
-- Formal accessibility or performance certification
-
-## Files
-
-Keep all files inside next-academy.
-
-Release A dependencies kept unchanged:
-- styles.css
-- catalog.js
-- schema.js
-- store.js
-- checks.html
-
-Release B files:
+Replaced:
 - index.html
 - app.js
-- course.js
-- learning-store.js
-- learning-ui.js
-- learning.css
-- learning-checks.html
-- README.md
 
-The original repository-root website remains unchanged.
+All Release A/B dependencies remain required.
 
-## Storage
+## Storage categories
 
 Preferences:
     launchpad-next-foundation-v1
 
-Learning data:
+Notes, drafts, and bookmarks:
     launchpad-next-learning-v1
 
-Learning data contains:
-- Bookmarked topic IDs
-- Last visited topic ID
-- Personal notes
-- Exercise drafts
+Activity and schedule:
+    launchpad-next-activity-v1
 
-Checkpoint feedback is intentionally not persisted as course completion.
+No automatic migration is needed: each previous category remains unchanged.
 
-Unreadable storage blocks automatic writes.
-Export untouched data before explicitly restoring or resetting.
+Export all three categories before moving origins or devices.
+Release C imports replace only Release C records.
 
-Never call localStorage.clear().
+## Actual activity versus estimates
 
-## Backups
+Planner minutes are estimates.
 
-Preferences and learning data are exported separately.
-Restore the matching file into the matching section.
+Daily study minutes are manually entered totals.
+Saving a day replaces its total rather than adding another session.
 
-Learning imports reject unknown topic IDs rather than silently deleting notes.
-Future content-schema changes must include an explicit migration.
+Check-ins do not add minutes.
+Opening a page does not add minutes.
+Completing a topic does not add minutes.
 
-Storage-write failures are shown to the learner.
-Unsaved text remains in the current editor, but must be copied before leaving.
+Topic completion and challenge success are self-reported.
+Checkpoint answers do not automatically certify completion.
 
-## Routes
+## Planning
 
-- #/
-- #/phases
-- #/phases/phase-0
-- #/modules/review-workspace
-- #/lessons/review-first-check
-- #/topics/review-actions-and-assertions
-- #/search
-- #/bookmarks
-- #/settings
-- #/release
+Topic estimates are split into blocks of up to 15 minutes.
+Supported study-day capacity: 30, 60, or 90 minutes.
 
-Unknown routes display a 404 view.
+Only published topics are scheduled.
+Curriculum order follows phase, module, lesson, and topic order.
+
+Completing a topic removes its remaining visible reminders.
+Partial reminder-block completion is not tracked.
+
+Saving planner settings rebuilds unfinished allocations.
+Catch-up and seven-day-break controls preserve activity records.
+
+If a completed topic is reopened after the schedule was rebuilt,
+rebuild the planner again to add that topic back.
+
+Calendar export is a snapshot, not synchronization.
+Calendar apps may duplicate imported reminders.
+Remove older imported copies when necessary.
+
+## Streaks
+
+A day is active when it has:
+- A check-in
+- Positive recorded minutes
+- A topic completion
+- A challenge completion
+
+Notes alone do not create activity.
+
+The current streak may end today or yesterday.
+The longest streak is calculated from recorded activity dates.
+
+Dates use the learner's local calendar date.
+Date arithmetic uses normalized calendar-day values.
+
+## Achievements
+
+Achievements are derived from current activity records.
+
+They can relock after records are corrected or removed.
+They are not permanent certificates.
+
+Installed rules:
+- One topic complete
+- Three consecutive active days
+- Sixty recorded study minutes
+
+## Data validation and concurrency
+
+Future activity dates are rejected.
+Daily minutes must be whole numbers between 0 and 1440.
+Unknown published-topic IDs are rejected on import.
+Invalid backups are rejected before replacement.
+
+Failed writes do not change the store's committed in-memory state.
+
+Release C checks for an activity record changed by another tab before saving.
+Reload if a conflicting write is detected.
+
+Preferences and learning stores retain their previous behavior.
+Use one editing tab for those records.
+
+## Export
+
+- Activity JSON backup
+- Planner ICS calendar snapshot
+- Selected-week Markdown report
+- Browser print / Save as PDF
+
+Print output is a browser-generated document, not a dedicated PDF library.
 
 ## Verification
 
 Run:
 - checks.html
 - learning-checks.html
+- activity-checks.html
 
-Both use in-memory storage for their test cases.
+Release C includes 20 in-memory logic checks.
 
-Then manually verify:
-- Tab keyboard navigation
-- Search dialog and Escape behavior
-- Code copying
-- Notes and draft persistence
-- Bookmark persistence
-- Backup/restore
-- Mobile layout
-- Light/dark readability
+Also manually verify:
+- Dashboard updates
+- Plan creation and catch-up
+- Topic completion and undo
+- Daily minute replacement
+- Check-in idempotence
+- Markdown/calendar export
+- Backup restore
+- Light/dark/mobile views
+- Keyboard navigation
+- Charts' accompanying data tables
 
 These files were not executed in the chat environment.
-Do not report a passing result until the checks actually run.
+Do not report passing results until you run the checks.
 
-## Content validation
+## Still pending
 
-schema.js validates content relationships and required published-topic fields.
-
-course.js extends validation for multiple-choice questions.
-
-The detailed notes must contain 300–800 words.
-There must be Python and TypeScript examples.
-Further-reading references must be HTTPS URLs.
-
-Validation checks structure, not whether APIs and explanations are correct.
-Technical content still requires review and actual example execution.
-
-## Next release
-
-Release C adds the dashboard, weekly planner, tracker,
-learning progress, and achievement rules.
-
-Detailed curriculum content follows in module-sized batches.
+- Full curriculum
+- Real backend or cross-device sync
+- Live AI
+- Browser-based code execution
+- Automatic exercise verification
+- Partial plan-block progress
+- Comprehensive browser UI automation
+- Measured accessibility and Lighthouse results

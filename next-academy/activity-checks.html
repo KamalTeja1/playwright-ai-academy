@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Launchpad — Release C Checks</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main>
+    <p><a href="./index.html#/">← Dashboard</a></p>
+    <h1>Release C verification</h1>
+    <section class="card">
+      <p>These tests use in-memory data. They do not change your records or run Playwright.</p>
+      <button id="run" class="primary" type="button">Run checks</button>
+      <p id="summary" role="status">Not run yet.</p>
+      <ol id="results"></ol>
+    </section>
+  </main>
+
+  <script type="module">
+    const button = document.getElementById("run");
+    const summary = document.getElementById("summary");
+    const list = document.getElementById("results");
+
+    button.onclick = async () => {
+      button.disabled = true;
+      list.replaceChildren();
+      summary.textContent = "Running…";
+
+      try {
+        const P = await import("./activity.js");
+        const { course } = await import("./course.js");
+
+        const fixture = {
+          ...course,
+          topics: [
+            { ...course.topics[0], id: "fixture-one", estimatedMinutes: 95, order: 0 },
+            { ...course.topics[0], id: "fixture-two", estimatedMinutes: 50, order: 1 }
+          ]
+        };
+
+        const settings = { start: "2026-09-28", days: [1, 3, 5], minutes: 30 };
+        const now = () => "2026-10-10";
+        const outcomes = [];
+
+        function assert(value, message) {
+          if (!value) throw new Error(message);
+        }
+
+        function rejects(callback) {
+          let rejected = false;
+          try { callback(); } catch { rejected = true; }
+          assert(rejected, "Expected rejection.");
+        }
+
+        function memory() {
+          const map = new Map();
+          return {
+            getItem: key => map.has(key) ? map.get(key) : null,
+            setItem: (key, value) => map.set(key, String(value)),
+            removeItem: key => map.delete(key)
+          };
+        }
+
+        function test(name, action) {
+          try {
+            action();
+            outcomes.push({ name, ok: true });
+          } catch (error) {
+            outcomes.push({ name, ok: false, error: String(error.message || error) });
+          }
+        }
+
+        test("Impossible dates are rejected", () => {
+          rejects(() => P.parseDay("2026-02-30"));
+        });
+
+        test("Leap days and Monday boundaries are correct", () => {
+          assert(P.addDays("2028-02-28", 1) === "2028-02-29", "Leap day mismatch.");
+          assert(P.monday("2027-01-01") === "2026-12-28", "Monday mismatch.");
+        });
+
+        test("Planner distributes all estimated minutes", () => {
+          const plan = P.buildPlan(fixture, settings, {});
+          assert(plan.entries.reduce((n, x) => n + x.minutes, 0) === 145, "Lost minutes.");
+          assert(plan.entries.some(x => x.minutes === 5), "Remainder block missing.");
+        });
+
+        test("Planner respects weekdays and capacity", () => {
+          const plan = P.buildPlan(fixture, settings, {});
+          const counts = {};
+          for (const entry of plan.entries) {
+            assert(settings.days.includes(P.parseDay(entry.date).getUTCDay()), "Wrong study day.");
+            counts[entry.date] = (counts[entry.date] || 0) + entry.minutes;
+          }
+          assert(Object.values(counts).every(n => n <= 30), "Daily capacity exceeded.");
+        });
+
+        test("Planner excludes completed topics and keeps curriculum order", () => {
+          const plan = P.buildPlan(fixture, settings, { "fixture-one": "2026-09-28" });
+          assert(plan.entries.every(x => x.topicId === "fixture-two"), "Completed topic rescheduled.");
+
+          const full = P.buildPlan(fixture, settings, {});
+          const firstSecond = full.entries.findIndex(x => x.topicId === "fixture-two");
+          assert(full.entries.slice(firstSecond).every(x => x.topicId === "fixture-two"), "Topic order reversed.");
+        });
+
+        test("Empty study-day selection is rejected", () => {
+          rejects(() => P.buildPlan(fixture, { ...settings, days: [] }, {}));
+        });
+
+        test("Repeated check-ins do not invent minutes", () => {
+          const store = P.createActivityStore(memory(), fixture, now);
+          store.checkIn();
+          store.checkIn();
+          assert(Object.keys(store.get().days).length === 1, "Duplicate days.");
+          assert(store.get().days[now()].minutes === 0, "Invented minutes.");
+        });
+
+        test("Repeated completion is idempotent", () => {
+          const store = P.createActivityStore(memory(), fixture, now);
+          store.mark("fixture-one", "completed", true);
+          store.mark("fixture-one", "completed", true);
+          assert(Object.keys(store.get().completed).length === 1, "Duplicate completions.");
+        });
+
+        test("Saving daily minutes replaces rather than adds", () => {
+          const store = P.createActivityStore(memory(), fixture, now);
+          store.setDay(now(), { ...P.blankDay(), minutes: 30 });
+          store.setDay(now(), { ...P.blankDay(), minutes: 45 });
+          assert(store.get().days[now()].minutes === 45, "Minutes were added.");
+        });
+
+        test("Streak allows yesterday but breaks after a missed day", () => {
+          const state = P.emptyActivity();
+          for (const day of ["2026-10-07", "2026-10-08", "2026-10-09"]) {
+            state.days[day] = { ...P.blankDay(), checkedIn: true };
+          }
+          assert(P.streaks(state, "2026-10-10").current === 3, "Yesterday grace mismatch.");
+          assert(P.streaks(state, "2026-10-11").current === 0, "Missed day not detected.");
+          assert(P.streaks(state, "2026-10-11").longest === 3, "Longest lost.");
+        });
+
+        test("Notes alone do not create a streak", () => {
+          const state = P.emptyActivity();
+          state.days[now()] = { ...P.blankDay(), notes: "Only a note" };
+          assert(P.streaks(state, now()).current === 0, "Notes created activity.");
+        });
+
+        test("A lesson completes only when all its topics complete", () => {
+          const state = P.emptyActivity();
+          state.completed["fixture-one"] = "2026-10-09";
+          assert(P.dailyMetrics(state, fixture, "2026-10-09").lessonsCompleted === 0, "Lesson completed early.");
+          state.completed["fixture-two"] = "2026-10-10";
+          assert(P.dailyMetrics(state, fixture, "2026-10-10").lessonsCompleted === 1, "Lesson completion missing.");
+        });
+
+        test("Future logs and unknown topic records are rejected", () => {
+          const store = P.createActivityStore(memory(), fixture, now);
+          rejects(() => store.setDay("2026-10-11", P.blankDay()));
+          rejects(() => store.mark("unknown", "completed", true));
+        });
+
+        test("Backup round-trip preserves schedule and notes", () => {
+          const store = P.createActivityStore(memory(), fixture, now);
+          store.setPlan(settings);
+          store.setDay(now(), { ...P.blankDay(), minutes: 25, notes: "Keep this." });
+          const clean = P.validateActivity(JSON.parse(JSON.stringify(store.get())), fixture, now());
+          assert(clean.days[now()].notes === "Keep this.", "Notes lost.");
+          assert(clean.plan.entries.length === store.get().plan.entries.length, "Schedule lost.");
+        });
+
+        test("Corrupt storage is not overwritten automatically", () => {
+          const storage = memory();
+          storage.setItem(P.ACTIVITY_KEY, "{broken");
+          const store = P.createActivityStore(storage, fixture, now);
+          assert(store.status().blocked, "Corruption not blocked.");
+          rejects(() => store.checkIn());
+          assert(storage.getItem(P.ACTIVITY_KEY) === "{broken", "Corrupt data overwritten.");
+        });
+
+        test("Failed writes do not change in-memory records", () => {
+          const storage = memory();
+          const store = P.createActivityStore(storage, fixture, now);
+          storage.setItem = () => { throw new Error("Simulated quota error"); };
+          rejects(() => store.checkIn());
+          assert(Object.keys(store.get().days).length === 0, "Failed write appeared saved.");
+        });
+
+        test("A stale tab cannot overwrite another tab's activity", () => {
+          const storage = memory();
+          const first = P.createActivityStore(storage, fixture, now);
+          const second = P.createActivityStore(storage, fixture, now);
+          first.checkIn();
+          rejects(() => second.mark("fixture-one", "completed", true));
+        });
+
+        test("Achievements derive from current records and can relock", () => {
+          const state = P.emptyActivity();
+          state.completed["fixture-one"] = now();
+          assert(P.achievementStatus(state).find(a => a.id === "first-topic").unlockedAt === now(), "Badge missing.");
+          delete state.completed["fixture-one"];
+          assert(P.achievementStatus(state).find(a => a.id === "first-topic").unlockedAt === null, "Badge did not relock.");
+        });
+
+        test("Calendar excludes completed topics", () => {
+          const state = P.emptyActivity();
+          state.plan = P.buildPlan(fixture, settings, {});
+          state.completed["fixture-one"] = now();
+          const calendar = P.calendarExport(state, fixture);
+          const expected = state.plan.entries.filter(x => x.topicId === "fixture-two").length;
+          assert((calendar.match(/BEGIN:VEVENT/g) || []).length === expected, "Wrong calendar event count.");
+          assert(calendar.endsWith("\r\n"), "Missing final line ending.");
+        });
+
+        test("Reset affects only Release C storage", () => {
+          const storage = memory();
+          storage.setItem("release-b-notes", "keep");
+          const store = P.createActivityStore(storage, fixture, now);
+          store.checkIn();
+          store.reset();
+          assert(storage.getItem("release-b-notes") === "keep", "Other storage erased.");
+          assert(storage.getItem(P.ACTIVITY_KEY) === null, "Activity key remains.");
+        });
+
+        for (const outcome of outcomes) {
+          const li = document.createElement("li");
+          li.className = outcome.ok ? "status-pass" : "status-fail";
+          li.textContent = (outcome.ok ? "PASS — " : "FAIL — ") +
+            outcome.name + (outcome.error ? ": " + outcome.error : "");
+          list.append(li);
+        }
+
+        summary.textContent =
+          `${outcomes.filter(x => x.ok).length}/${outcomes.length} checks passed in this browser.`;
+      } catch (error) {
+        summary.textContent = "Checks could not run: " + String(error.message || error);
+      } finally {
+        button.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

@@ -120,8 +120,7 @@ async function start() {
         </a>`).join("") +
       '<a href="./checks.html">Release A checks</a>' +
       '<a href="./learning-checks.html">Release B checks</a>' +
-      '<a href="./activity-checks.html">Release C checks</a>' +
-      '<a href="./d1-checks.html">Release D1 checks</a>';
+      '<a href="./activity-checks.html">Release C checks</a>';
 
     document.getElementById("course-tree").innerHTML = `
       <div class="course-tree"><p class="eyebrow">PHASE → MODULE → LESSON</p>
@@ -147,7 +146,7 @@ async function start() {
 
   function phases() {
     main.innerHTML = `<h1>Your course map</h1>
-      <p class="muted">Environment Setup is installed. The earlier review module is retained to preserve your records.</p>
+      <p class="muted">Only the interface-review module is installed.</p>
       <div class="grid">${course.phases.map(phase => `
         <a class="phase-card" href="#/phases/${phase.id}">
           <span class="phase-number">${phase.order}</span>
@@ -166,7 +165,7 @@ async function start() {
       <h1>${e(phase.title)}</h1><p>${e(phase.description)}</p>
       ${modules.length ? `<div class="grid">${modules.map(module => `
         <a class="phase-card" href="#/modules/${module.id}">
-          <span class="badge">${module.id === "review-workspace" ? "Retained interface review" : "Published course module"}</span>
+          <span class="badge">Interface review</span>
           <h2>${e(module.title)}</h2><p>${e(module.description)}</p>
         </a>`).join("")}</div>` :
         '<section class="card"><h2>Content not installed</h2><p>This phase is not a completed course module.</p></section>'}`;
@@ -338,7 +337,7 @@ async function start() {
   }
 
   function release() {
-    main.innerHTML = `<h1>Release D1 status</h1>
+    main.innerHTML = `<h1>Release C status</h1>
       <section class="card"><h2>Implemented</h2><ul>
         <li>Dashboard with actual learner-recorded activity.</li>
         <li>Weekly planning using installed topic estimates.</li>
@@ -348,7 +347,7 @@ async function start() {
         <li>Calendar, Markdown, print, and activity JSON export.</li>
       </ul></section>
       <section class="card"><h2>Important limits</h2>
-        <p>Six complete Environment Setup topics are installed. The original review topic remains available. Other modules have not been authored in this release.</p>
+        <p>One interface-review topic is installed. Full course content arrives later.</p>
         <p>Study time is entered manually. Challenge success is self-reported.
         Quizzes do not certify completion. No live AI or test runner exists in this browser app.</p>
         <p>The activity store detects conflicting writes from another tab.

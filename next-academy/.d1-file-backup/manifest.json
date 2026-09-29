@@ -1,0 +1,26 @@
+{
+  "review-course.js": {
+    "existed": false,
+    "installedSha256": "a23e2611b799ce286e23591a93f02fda382b7a340d9e92fbbc1b80207692557c"
+  },
+  "course.js": {
+    "existed": true,
+    "installedSha256": "7c64dff32c8f53b33679b553cf32bfe019f47a82e7bd5bd564f15dacef5a434b"
+  },
+  "learning-ui.js": {
+    "existed": true,
+    "installedSha256": "bade1639b3f755d29b690c549be92c60acb0112ffe4048833d3d562b9ccbef4f"
+  },
+  "activity-ui.js": {
+    "existed": true,
+    "installedSha256": "4616fab1a311032d9a037521fade3c46bdac5da31d59f6c0c48a880cb3fd285a"
+  },
+  "app.js": {
+    "existed": true,
+    "installedSha256": "c3328b51ebd9da7be2dc9b67a9630b2db91b445aea32d44f08f22cd29babf135"
+  },
+  "index.html": {
+    "existed": true,
+    "installedSha256": "8744aaf4ebfb81efc6ac8156d65ecaba8246cc9aafc3263fe86dcb3dc0d85d4c"
+  }
+}

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Launchpad — D1 Content Checks</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main>
+    <p><a href="./index.html#/">← Dashboard</a></p>
+    <h1>Release D1 content checks</h1>
+
+    <section class="card">
+      <p>
+        These checks inspect the content and use in-memory activity records.
+        They do not execute Python examples or change your saved data.
+      </p>
+
+      <button id="run" type="button" class="primary">Run D1 checks</button>
+      <p id="summary" role="status">Not run yet.</p>
+      <ol id="results"></ol>
+    </section>
+  </main>
+
+  <script type="module">
+    const button = document.getElementById("run");
+    const summary = document.getElementById("summary");
+    const results = document.getElementById("results");
+
+    button.onclick = async () => {
+      button.disabled = true;
+      results.replaceChildren();
+      summary.textContent = "Running…";
+
+      try {
+        const [
+          { course, courseErrors },
+          { course: oldCourse },
+          { environmentTopics, environmentModule },
+          activity,
+          { validateLearning }
+        ] = await Promise.all([
+          import("./course.js"),
+          import("./review-course.js"),
+          import("./d1-environment.js"),
+          import("./activity.js"),
+          import("./learning-store.js")
+        ]);
+
+        const outcomes = [];
+        const assert = (value, message) => {
+          if (!value) throw new Error(message);
+        };
+
+        function test(name, action) {
+          try {
+            action();
+            outcomes.push({ name, pass: true });
+          } catch (error) {
+            outcomes.push({
+              name,
+              pass: false,
+              error: String(error.message || error)
+            });
+          }
+        }
+
+        const expectedTitles = [
+          "Install Python (3.10+), VS Code, Git",
+          "VS Code extensions: Python, Pylance, Playwright Test, GitLens",
+          "Terminal basics: cd, ls, mkdir, touch, rm, cp, mv, pwd, cat",
+          "Virtual environments: python -m venv venv, activation, deactivation",
+          "pip essentials: pip install, pip freeze, requirements.txt",
+          "DevTools tour: Elements, Console, Network, Application, Sources, Performance, Lighthouse"
+        ];
+
+        const words = topic => topic.content
+          .map(section => section.body)
+          .join(" ")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .length;
+
+        const oldId = oldCourse.topics[0].id;
+        const allIds = course.topics.map(topic => topic.id);
+        const settings = {
+          start: "2026-09-28",
+          days: [1, 2, 3, 4, 5],
+          minutes: 60
+        };
+
+        test("All content passes the existing schema", () => {
+          const errors = courseErrors();
+          assert(errors.length === 0, errors.join(" | "));
+        });
+
+        test("Exactly six D1 topics preserve the supplied titles", () => {
+          assert(environmentTopics.length === 6, "Expected six topics.");
+          expectedTitles.forEach((title, index) => {
+            assert(environmentTopics[index].title === title, "Title mismatch: " + title);
+          });
+        });
+
+        test("Every D1 topic has 300–800 detailed-note words", () => {
+          for (const topic of environmentTopics) {
+            const count = words(topic);
+            assert(count >= 300 && count <= 800, `${topic.id}: ${count} words.`);
+          }
+        });
+
+        test("Every topic has Python and TypeScript code with imports", () => {
+          for (const topic of environmentTopics) {
+            const py = topic.codeExamples.find(x => x.language === "python");
+            const ts = topic.codeExamples.find(x => x.language === "typescript");
+            assert(py && py.source.includes("import"), "Missing Python import.");
+            assert(ts && ts.source.includes("import"), "Missing TypeScript import.");
+            assert(py.filename.endsWith(".py"), "Wrong Python extension.");
+            assert(ts.filename.endsWith(".spec.ts"), "Wrong TypeScript extension.");
+          }
+        });
+
+        test("Every topic has 3–5 answer-backed MCQs", () => {
+          for (const topic of environmentTopics) {
+            assert(topic.checkpoint.length >= 3 && topic.checkpoint.length <= 5, "Question count mismatch.");
+            for (const question of topic.checkpoint) {
+              assert(question.choices.length === 4, "Expected four options.");
+              assert(Number.isInteger(question.correctIndex), "Missing answer index.");
+              assert(question.answer.length > 10, "Missing explanation.");
+            }
+          }
+        });
+
+        test("Every topic has exercise, challenge, tips, mistakes, and references", () => {
+          for (const topic of environmentTopics) {
+            assert(topic.handsOn.steps.length >= 5, "Walkthrough too short.");
+            assert(topic.handsOn.deliverable && topic.handsOn.expected, "Missing exercise outcome.");
+            assert(topic.challenge.task && topic.challenge.solution, "Missing challenge.");
+            assert(topic.proTips.length >= 3 && topic.proTips.length <= 5, "Tip count mismatch.");
+            assert(topic.commonMistakes.length >= 3 && topic.commonMistakes.length <= 5, "Mistake count mismatch.");
+            assert(topic.furtherReading.every(url => new URL(url).protocol === "https:"), "Invalid reference.");
+          }
+        });
+
+        test("Seven topic IDs are unique and the review ID is preserved", () => {
+          assert(course.topics.length === 7, "Expected six course topics plus review.");
+          assert(new Set(allIds).size === 7, "Duplicate topic IDs.");
+          assert(allIds.includes(oldId), "Original review ID was removed.");
+        });
+
+        test("The module appears before the retained review module", () => {
+          const ordered = activity.orderedTopics(course);
+          assert(ordered[0].id === environmentTopics[0].id, "D1 not first.");
+          assert(ordered.at(-1).id === oldId, "Review topic not at the end.");
+          assert(environmentModule.order === 0, "Unexpected module order.");
+        });
+
+        test("Earlier learning records validate without losing text", () => {
+          const backup = {
+            schemaVersion: 1,
+            bookmarks: [oldId],
+            lastTopic: oldId,
+            records: {
+              [oldId]: {
+                notes: "Keep my original notes.",
+                draft: "Keep my draft."
+              }
+            }
+          };
+
+          const restored = validateLearning(backup, allIds);
+          assert(restored.records[oldId].notes === backup.records[oldId].notes, "Notes changed.");
+          assert(restored.bookmarks.includes(oldId), "Bookmark lost.");
+        });
+
+        test("Earlier activity schedules remain importable", () => {
+          const backup = activity.emptyActivity();
+          backup.plan = activity.buildPlan(oldCourse, settings, {});
+          backup.completed[oldId] = "2026-09-28";
+          const restored = activity.validateActivity(backup, course, "2026-10-10");
+          assert(restored.completed[oldId] === "2026-09-28", "Completion changed.");
+          assert(restored.plan.entries.length === backup.plan.entries.length, "Old schedule changed.");
+        });
+
+        test("Rebuilding schedules adds new lessons without changing completion", () => {
+          const completed = { [oldId]: "2026-09-28" };
+          const plan = activity.buildPlan(course, settings, completed);
+          const expected = environmentTopics.reduce((sum, topic) => sum + topic.estimatedMinutes, 0);
+          assert(plan.entries.reduce((sum, entry) => sum + entry.minutes, 0) === expected, "Allocated minutes mismatch.");
+          assert(plan.entries.every(entry => entry.topicId !== oldId), "Completed review topic rescheduled.");
+          assert(completed[oldId] === "2026-09-28", "Input completion mutated.");
+        });
+
+        test("New lessons begin incomplete", () => {
+          const state = activity.emptyActivity();
+          state.completed[oldId] = "2026-09-28";
+          assert(environmentTopics.every(topic => !state.completed[topic.id]), "A new lesson inherited completion.");
+        });
+
+        for (const outcome of outcomes) {
+          const li = document.createElement("li");
+          li.className = outcome.pass ? "status-pass" : "status-fail";
+          li.textContent =
+            (outcome.pass ? "PASS — " : "FAIL — ") +
+            outcome.name +
+            (outcome.error ? ": " + outcome.error : "");
+          results.append(li);
+        }
+
+        const counts = environmentTopics.map(topic =>
+          `${topic.id}: ${words(topic)} note words`
+        ).join("; ");
+
+        summary.textContent =
+          `${outcomes.filter(x => x.pass).length}/${outcomes.length} checks passed. ${counts}`;
+      } catch (error) {
+        summary.textContent =
+          "Checks could not run: " + String(error.message || error);
+      } finally {
+        button.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

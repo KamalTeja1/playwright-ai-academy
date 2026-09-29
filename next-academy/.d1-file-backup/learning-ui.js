@@ -88,7 +88,7 @@ export function renderTopic({
   root.innerHTML = `
     ${breadcrumbs}
 
-    <span class="badge">${topic.isReviewFixture ? "INTERFACE REVIEW" : "PHASE 0 · ENVIRONMENT SETUP"} · ${topic.estimatedMinutes} minute estimate</span>
+    <span class="badge">INTERFACE REVIEW · NOT THE FULL CURRICULUM</span>
     <h1>${e(topic.title)}</h1>
     <p>${e(topic.summary)}</p>
 
@@ -126,8 +126,8 @@ export function renderTopic({
           <section class="card">
             <h2 data-toc tabindex="-1">Python and TypeScript examples</h2>
             <p class="small muted">
-              Setup topics 1–4 include deferred examples: run them after Topic 5 prepares
-              the matching workspace. Read the Hands-On tab first. This page does not run code.
+              For already configured local workspaces.
+              This page does not run the code.
             </p>
             ${topic.codeExamples.map(codeBlock).join("")}
           </section>
@@ -200,8 +200,8 @@ export function renderTopic({
               <p>${e(topic.challenge.solution)}</p>
             </details>
             <p class="small muted">
-              This page does not execute the challenge. Use the learning-record controls
-              above to record your own completion; it remains self-reported.
+              Challenge execution and completion tracking are not implemented
+              in this interface-review release.
             </p>
           </section>
         </section>
@@ -212,7 +212,7 @@ export function renderTopic({
             <h2 data-toc tabindex="-1">Check your understanding</h2>
             <p>
               Choose one answer per question. Feedback appears immediately.
-              Checkpoint answers are not saved as verified proficiency. Topic completion is recorded separately.
+              Answers are not saved as course progress in Release B.
             </p>
 
             ${topic.checkpoint.map((question, index) => `

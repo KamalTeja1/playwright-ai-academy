@@ -1,0 +1,283 @@
+.spaced {
+  margin-top: 22px;
+}
+
+.progress-ring {
+  --progress: 0;
+  display: grid;
+  place-items: center;
+  width: 106px;
+  height: 106px;
+  margin-bottom: 15px;
+  padding: 9px;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      #22d3ee calc(var(--progress) * 1%),
+      var(--raised) 0
+    );
+}
+
+.progress-ring span {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+progress {
+  display: block;
+  width: 100%;
+  height: 11px;
+  margin: 16px 0;
+  accent-color: var(--primary);
+}
+
+.mini-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  min-height: 65px;
+  margin-top: 16px;
+}
+
+.mini-bars span {
+  flex: 1;
+  min-width: 4px;
+  border-radius: 4px 4px 0 0;
+  background: #7c5cff;
+}
+
+.phase-progress {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.phase-progress:last-child {
+  border-bottom: 0;
+}
+
+.phase-progress p {
+  margin: 7px 0;
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 13px;
+  margin-top: 20px;
+}
+
+.calendar-day {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface);
+}
+
+.calendar-day h3 {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.calendar-day p {
+  margin-bottom: 8px;
+}
+
+.calendar-day.is-today {
+  border-color: var(--link);
+  box-shadow: inset 0 3px 0 var(--primary);
+}
+
+.plan-task {
+  display: block;
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  font-size: 12px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.plan-task small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+}
+
+.study-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.day-choice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px;
+  margin: 7px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.day-choice input {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--primary);
+}
+
+.heatmap {
+  display: grid;
+  grid-template-rows: repeat(7, 15px);
+  grid-auto-flow: column;
+  grid-auto-columns: 15px;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 10px 0;
+  margin-bottom: 20px;
+}
+
+.heatmap span {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--raised);
+}
+
+.heatmap span.active {
+  border-color: #beaaff;
+  background: #6948d7;
+}
+
+.activity-chart {
+  display: block;
+  width: 100%;
+  height: 150px;
+  margin: 15px 0 25px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: 11px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.table-scroll caption {
+  padding: 12px 0;
+  text-align: left;
+  color: var(--muted);
+}
+
+.history-details {
+  padding: 15px;
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.history-details summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.achievement {
+  border-top: 3px solid var(--border);
+}
+
+.achievement.earned {
+  border-top-color: #34d399;
+}
+
+.achievement-symbol {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: var(--link);
+  font-size: 32px;
+}
+
+.achievement strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activity-controls {
+  border-left: 4px solid var(--primary);
+}
+
+@media (max-width:760px) {
+  .week-grid {
+    grid-template-columns: minmax(0,1fr);
+  }
+}
+
+@media print {
+  .topbar,
+  #sidebar,
+  footer,
+  #toast,
+  dialog,
+  .actions,
+  button,
+  form,
+  .skip-link {
+    display: none !important;
+  }
+
+  .app-layout {
+    display: block;
+  }
+
+  body,
+  main,
+  .card,
+  .calendar-day {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .card,
+  .calendar-day {
+    break-inside: avoid;
+  }
+
+  .muted {
+    color: #444 !important;
+  }
+
+  .week-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
